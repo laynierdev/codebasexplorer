@@ -1,24 +1,56 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { ZodError } from "zod";
+import { DEFAULT_LIMITS, resolveLimits } from "@/analysis/limits";
+import { IGNORED_DIRECTORIES, IGNORED_PATTERNS } from "@/analysis/ignore";
+import { useExplorer } from "@/context/ExplorerContext";
 import { PageHeader } from "@/components/ui/primitives";
 
-const DEFAULT_IGNORES = ["node_modules/", ".git/", "dist/", "build/", ".next/", "coverage/", ".cache/", "*.lock", "package-lock.json"];
+const MB = 1024 * 1024;
 
 export default function SettingsPage() {
-  const [maxArchiveMb, setMaxArchiveMb] = useState(50);
-  const [maxFileKb, setMaxFileKb] = useState(1024);
-  const [maxFiles, setMaxFiles] = useState(10000);
-  const [ignores, setIgnores] = useState(DEFAULT_IGNORES);
+  const { limits, setLimits } = useExplorer();
+  const [maxArchiveMb, setMaxArchiveMb] = useState(limits.maxArchiveBytes / MB);
+  const [maxFileKb, setMaxFileKb] = useState(limits.maxFileBytes / 1024);
+  const [maxFiles, setMaxFiles] = useState(limits.maxFiles);
+  const [extraIgnores, setExtraIgnores] = useState(limits.extraIgnores);
+  const [respectGitignore, setRespectGitignore] = useState(limits.respectGitignore);
   const [newIgnore, setNewIgnore] = useState("");
-  const [respectGitignore, setRespectGitignore] = useState(true);
-  const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState<{ kind: "saved" | "error"; text: string } | null>(null);
 
   const addIgnore = (e: FormEvent) => {
     e.preventDefault();
     const v = newIgnore.trim();
-    if (v && !ignores.includes(v)) setIgnores([...ignores, v]);
+    if (v && !extraIgnores.includes(v)) setExtraIgnores([...extraIgnores, v]);
     setNewIgnore("");
+  };
+
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      const next = resolveLimits({
+        maxArchiveBytes: Math.round(maxArchiveMb * MB),
+        maxFileBytes: Math.round(maxFileKb * 1024),
+        maxFiles: Math.round(maxFiles),
+        extraIgnores,
+        respectGitignore,
+      });
+      setLimits(next);
+      setStatus({ kind: "saved", text: "Saved for this session. They apply to the next import." });
+    } catch (err) {
+      setStatus({ kind: "error", text: err instanceof ZodError ? "Every limit must be a positive number." : "Invalid settings." });
+    }
+  };
+
+  const reset = () => {
+    setMaxArchiveMb(DEFAULT_LIMITS.maxArchiveBytes / MB);
+    setMaxFileKb(DEFAULT_LIMITS.maxFileBytes / 1024);
+    setMaxFiles(DEFAULT_LIMITS.maxFiles);
+    setExtraIgnores([]);
+    setRespectGitignore(true);
+    setLimits(DEFAULT_LIMITS);
+    setStatus({ kind: "saved", text: "Defaults restored." });
   };
 
   return (
@@ -48,28 +80,22 @@ export default function SettingsPage() {
         <div className="col-lg-6">
           <section className="cx-card h-100">
             <h2 className="cx-card-title">Import limits</h2>
-            <form
-              className="cx-card-body d-flex flex-column gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setSaved(true);
-              }}
-            >
+            <form className="cx-card-body d-flex flex-column gap-3" onSubmit={save}>
               <div>
                 <label htmlFor="max-archive" className="form-label mb-1">
                   Max archive size (MB)
                 </label>
-                <input id="max-archive" type="number" min={1} className="form-control form-control-sm" value={maxArchiveMb} onChange={(e) => setMaxArchiveMb(Number(e.target.value))} />
+                <input id="max-archive" type="number" min={1} step="any" className="form-control form-control-sm" value={maxArchiveMb} onChange={(e) => setMaxArchiveMb(Number(e.target.value))} />
               </div>
               <div>
                 <label htmlFor="max-file" className="form-label mb-1">
-                  Max file size (KB)
+                  Max file size (KB) <span className="text-muted">— larger files are skipped and reported</span>
                 </label>
-                <input id="max-file" type="number" min={1} className="form-control form-control-sm" value={maxFileKb} onChange={(e) => setMaxFileKb(Number(e.target.value))} />
+                <input id="max-file" type="number" min={1} step="any" className="form-control form-control-sm" value={maxFileKb} onChange={(e) => setMaxFileKb(Number(e.target.value))} />
               </div>
               <div>
                 <label htmlFor="max-files" className="form-label mb-1">
-                  Max files per archive
+                  Max files analyzed
                 </label>
                 <input id="max-files" type="number" min={1} className="form-control form-control-sm" value={maxFiles} onChange={(e) => setMaxFiles(Number(e.target.value))} />
               </div>
@@ -79,13 +105,16 @@ export default function SettingsPage() {
                   Respect .gitignore when present
                 </label>
               </div>
-              <div>
+              <div className="d-flex align-items-center gap-2 flex-wrap">
                 <button type="submit" className="btn btn-primary btn-sm">
                   Save settings
                 </button>
-                {saved && (
-                  <span className="ms-2 text-success" role="status">
-                    Saved for this session.
+                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={reset}>
+                  Restore defaults
+                </button>
+                {status && (
+                  <span className={status.kind === "saved" ? "text-success" : "text-danger"} role={status.kind === "error" ? "alert" : "status"}>
+                    {status.text}
                   </span>
                 )}
               </div>
@@ -97,12 +126,27 @@ export default function SettingsPage() {
           <section className="cx-card">
             <h2 className="cx-card-title">Ignored paths</h2>
             <div className="cx-card-body">
-              <p className="text-muted">Ignored items are never analyzed, but every skipped item is listed in the analysis summary.</p>
-              <div className="d-flex flex-wrap gap-2 mb-3">
-                {ignores.map((p) => (
+              <p className="text-muted">Ignored items are never read or analyzed, but every skipped item is listed in the analysis summary.</p>
+              <div className="stat-label mb-1">Always ignored (built in)</div>
+              <div className="d-flex flex-wrap gap-1 mb-3">
+                {[...IGNORED_DIRECTORIES].map((d) => (
+                  <span key={d} className="chip mono">
+                    {d}/
+                  </span>
+                ))}
+                {IGNORED_PATTERNS.map((p) => (
                   <span key={p} className="chip mono">
                     {p}
-                    <button type="button" className="btn-close ms-1" style={{ fontSize: "0.55rem" }} aria-label={`Remove ${p}`} onClick={() => setIgnores(ignores.filter((x) => x !== p))} />
+                  </span>
+                ))}
+              </div>
+              <div className="stat-label mb-1">Your extra patterns (.gitignore syntax)</div>
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                {extraIgnores.length === 0 && <span className="text-muted">None.</span>}
+                {extraIgnores.map((p) => (
+                  <span key={p} className="chip mono">
+                    {p}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: "0.55rem" }} aria-label={`Remove ${p}`} onClick={() => setExtraIgnores(extraIgnores.filter((x) => x !== p))} />
                   </span>
                 ))}
               </div>
@@ -110,11 +154,12 @@ export default function SettingsPage() {
                 <label htmlFor="new-ignore" className="visually-hidden">
                   New ignore pattern
                 </label>
-                <input id="new-ignore" className="form-control form-control-sm mono" placeholder="e.g. vendor/" value={newIgnore} onChange={(e) => setNewIgnore(e.target.value)} />
+                <input id="new-ignore" className="form-control form-control-sm mono" placeholder="e.g. vendor/ or *.generated.ts" value={newIgnore} onChange={(e) => setNewIgnore(e.target.value)} />
                 <button type="submit" className="btn btn-outline-primary btn-sm">
                   Add
                 </button>
               </form>
+              <p className="text-muted small mt-2 mb-0">Remember to press “Save settings” to apply added or removed patterns.</p>
             </div>
           </section>
         </div>

@@ -1,6 +1,6 @@
 import type { Repository } from "@/domain/types";
 import { buildGraphIndex, findCycles, LAYER_LABEL, layerOf } from "@/lib/graph/analysis";
-import { DEMO_FLOWS } from "@/mock/demoFlows";
+import { EXTERNAL_SYSTEMS } from "@/analysis/technologies";
 import { findSymbol } from "@/lib/repo/refs";
 
 export interface DocSection {
@@ -25,9 +25,9 @@ export function generateDocs(repo: Repository): DocSection[] {
     "- Files analyzed: " + repo.analysis.analyzedFiles + " (" + repo.analysis.parsedFiles + " parsed for symbols and dependencies)",
     "- Languages: " + repo.languages.map((l) => l.language + " (" + l.files + ")").join(", "),
     "- Technologies: " + repo.technologies.join(", "),
-    "- Entry point: " + repo.entryPoints.map((e) => "`" + e + "`").join(", "),
+    "- Entry points: " + (repo.entryPoints.map((e) => "`" + e.path + "` (" + e.reason + ")").join(", ") || "none detected"),
     "",
-    "Skipped during analysis: " + repo.skipped.map((s) => "`" + s.path + "`").join(", ") + ".",
+    repo.skipped.length ? "Skipped during analysis: " + repo.skipped.map((s) => "`" + s.path + "`").join(", ") + "." : "Nothing was skipped during analysis.",
   ].join("\n");
 
   const layers = new Map<string, string[]>();
@@ -43,7 +43,7 @@ export function generateDocs(repo: Repository): DocSection[] {
     "",
     ...[...layers.entries()].map(([label, paths]) => "- **" + label + "**: " + paths.map((p) => "`" + p + "`").join(", ")),
     "",
-    "External systems (from imported packages): PostgreSQL (`pg`), Stripe (`stripe`), SMTP (`nodemailer`).",
+    externalsLine(repo),
     "",
     cycles.length ? "Circular dependencies: " + cycles.map((c) => c.map((p) => "`" + p + "`").join(" ⇄ ")).join("; ") + "." : "No circular dependencies detected.",
   ].join("\n");
@@ -77,13 +77,16 @@ export function generateDocs(repo: Repository): DocSection[] {
   const flows = [
     "# Important execution flows",
     "",
-    ...DEMO_FLOWS.flatMap((flow) => [
+    ...(repo.flows.length ? [] : ["No execution flows were detected.", ""]),
+    ...repo.flows.flatMap((flow) => [
       "## " + flow.title + " (`" + flow.trigger + "`)",
       flow.summary,
       "",
       ...flow.steps.map((s, i) => {
-        const sym = findSymbol(repo, s.file, s.symbol);
-        const where = sym ? s.file + ":" + sym.startLine + "-" + sym.endLine : s.file;
+        const sym = s.startLine ? undefined : findSymbol(repo, s.file, s.symbol);
+        const start = s.startLine ?? sym?.startLine;
+        const end = s.endLine ?? sym?.endLine;
+        const where = start ? s.file + ":" + start + (end && end !== start ? "-" + end : "") : s.file;
         return i + 1 + ". " + s.title + " — `" + where + "`" + (s.evidence === "inferred" ? " _(inference)_" : "");
       }),
       "",
@@ -104,15 +107,20 @@ export function generateDocs(repo: Repository): DocSection[] {
     ...repo.externalDependencies.map((d) => "- `" + d.name + "` " + d.version + (d.dev ? " (dev)" : "")),
   ].join("\n");
 
+  const manifest = repo.files.find((f) => f.path === "package.json");
+  const scripts = manifest ? readScripts(manifest.content) : {};
+  const envFile = repo.files.find((f) => f.name === ".env.example" || f.name === ".env.sample");
+  const firstEntry = repo.entryPoints[0]?.path;
   const onboarding = [
     "# Developer onboarding guide",
     "",
-    "1. Copy `.env.example` to `.env` and fill in the values.",
-    "2. Create the schema with `scripts/seed.sql`.",
-    "3. Run `npm install` and `npm run dev`.",
-    "4. Read `src/server.ts`, then `src/app.ts` and `src/routes/index.ts`.",
-    "5. Follow the *Place an order* flow end to end.",
-    "6. To add a feature: route → controller → service → repository, plus a test in `tests/`.",
+    ...numbered([
+      envFile ? "Copy `" + envFile.path + "` to `.env` and fill in the values." : undefined,
+      Object.keys(scripts).length ? "Install dependencies and use the package scripts: " + Object.keys(scripts).map((k) => "`" + k + "`").join(", ") + "." : undefined,
+      firstEntry ? "Start reading at `" + firstEntry + "`." : "No entry point was detected; start from the most imported files listed in the dependency summary.",
+      repo.flows[0] ? "Follow the *" + repo.flows[0].title + "* flow end to end." : undefined,
+      "Use the dependency summary to see which files are most central before changing them.",
+    ]),
   ].join("\n");
 
   return [
@@ -124,4 +132,25 @@ export function generateDocs(repo: Repository): DocSection[] {
     { id: "dependencies", title: "Dependency summary", markdown: deps },
     { id: "onboarding", title: "Onboarding guide", markdown: onboarding },
   ];
+}
+
+function externalsLine(repo: Repository): string {
+  const labels = new Set<string>();
+  for (const usage of repo.externalUsages) {
+    const system = EXTERNAL_SYSTEMS.find((s) => s.packages.includes(usage.package));
+    if (system) labels.add(system.label + " (`" + usage.package + "`)");
+  }
+  return labels.size ? "External systems (from imported packages): " + [...labels].join(", ") + "." : "No external systems were detected from imported packages.";
+}
+
+function readScripts(manifest: string): Record<string, string> {
+  try {
+    return (JSON.parse(manifest) as { scripts?: Record<string, string> }).scripts ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function numbered(items: (string | undefined)[]): string[] {
+  return items.filter((i): i is string => Boolean(i)).map((text, i) => i + 1 + ". " + text);
 }

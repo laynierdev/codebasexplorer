@@ -1,3 +1,4 @@
+import { classifyLayer } from "@/analysis/layers";
 import type { ApiEndpoint, ImpactResult, Layer, Repository } from "@/domain/types";
 
 /** Pure graph helpers over a Repository. No React, no I/O. */
@@ -21,34 +22,18 @@ export function buildGraphIndex(repo: Repository): GraphIndex {
   return { outgoing, incoming };
 }
 
+export { LAYER_LABEL } from "@/analysis/layers";
+
+/** Layer of a path, using the shared analysis heuristics. */
 export function layerOf(path: string): Layer {
-  if (path === "src/server.ts" || path === "src/app.ts") return "entry";
-  if (path.startsWith("src/routes/")) return "route";
-  if (path.startsWith("src/controllers/")) return "controller";
-  if (path.startsWith("src/services/")) return "service";
-  if (path.startsWith("src/repositories/")) return "repository";
-  if (path.startsWith("src/db/")) return "database";
-  if (path.startsWith("src/middleware/")) return "middleware";
-  if (path.startsWith("src/config/")) return "config";
-  if (path.startsWith("src/models/")) return "model";
-  if (path.startsWith("tests/")) return "test";
-  return "other";
+  return classifyLayer(path);
 }
 
-export const LAYER_LABEL: Record<Layer, string> = {
-  entry: "Entry",
-  route: "Routes",
-  controller: "Controllers",
-  service: "Services",
-  repository: "Repositories",
-  database: "Database",
-  middleware: "Middleware",
-  config: "Config",
-  model: "Models",
-  test: "Tests",
-  external: "External",
-  other: "Other",
-};
+/** The project file that most other files import (a good starting point for exploring dependencies). */
+export function mostImported(repo: Repository): string | undefined {
+  const { incoming } = buildGraphIndex(repo);
+  return [...incoming.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))[0]?.[0];
+}
 
 /** Tarjan's strongly connected components; returns only real cycles (size > 1). */
 export function findCycles(repo: Repository): string[][] {

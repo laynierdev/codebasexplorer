@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useExplorer } from "@/context/ExplorerContext";
-import { computeImpact, layerOf } from "@/lib/graph/analysis";
+import { computeImpact, layerOf, mostImported } from "@/lib/graph/analysis";
 import { getSymbols } from "@/lib/repo/refs";
 import { FileList, PageHeader, SourceLink } from "@/components/ui/primitives";
 import type { Layer } from "@/domain/types";
@@ -22,7 +22,7 @@ const POTENTIAL: Partial<Record<Layer, string[]>> = {
 export default function ImpactPage() {
   const { repo, ask, setAssistantOpen } = useExplorer();
   const parsed = useMemo(() => repo.files.filter((f) => f.parsed), [repo]);
-  const [target, setTarget] = useState("src/services/payment.service.ts");
+  const [target, setTarget] = useState(() => mostImported(repo) ?? parsed[0]?.path ?? "");
   const [symbol, setSymbol] = useState("");
 
   const result = useMemo(() => computeImpact(repo, target), [repo, target]);

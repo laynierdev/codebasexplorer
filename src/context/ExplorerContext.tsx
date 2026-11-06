@@ -2,17 +2,25 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import type { AssistantMessage, Repository } from "@/domain/types";
+import type { AnalysisLimits, AssistantMessage, Repository } from "@/domain/types";
+import { DEFAULT_LIMITS } from "@/analysis/limits";
 import { answerQuestion } from "@/lib/assistant/mockAssistant";
-import { demoRepository } from "@/mock/buildDemoRepo";
+
 
 export interface LineRange {
   start: number;
   end: number;
 }
 
+export type ImportState =
+  | { status: "idle" }
+  | { status: "running"; stage: string; done: number; total: number }
+  | { status: "error"; message: string };
+
 interface ExplorerState {
   repo: Repository;
+  /** "demo" for the bundled sample, "imported" for a repository analyzed in this session. */
+  source: "demo" | "imported";
   selectedFile: string;
   highlight: LineRange | null;
   /** Opens a file in the workspace, optionally highlighting a line range. */
@@ -23,19 +31,33 @@ interface ExplorerState {
   thinking: boolean;
   ask: (question: string) => void;
   clearMessages: () => void;
+  limits: AnalysisLimits;
+  setLimits: (limits: AnalysisLimits) => void;
+  importState: ImportState;
+  importZip: (file: File) => Promise<boolean>;
+  importFolder: (files: File[]) => Promise<boolean>;
+  clearImportError: () => void;
+  resetToDemo: () => void;
 }
 
 const ExplorerContext = createContext<ExplorerState | null>(null);
 
-export function ExplorerProvider({ children }: { children: ReactNode }) {
-  const repo = demoRepository;
+function initialFile(repo: Repository): string {
+  return repo.entryPoints[0]?.path ?? repo.files.find((f) => f.parsed)?.path ?? repo.files[0]?.path ?? "";
+}
+
+export function ExplorerProvider({ children, demo }: { children: ReactNode; demo: Repository }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [selectedFile, setSelectedFile] = useState("src/server.ts");
+  const [repo, setRepo] = useState<Repository>(demo);
+  const [source, setSource] = useState<"demo" | "imported">("demo");
+  const [selectedFile, setSelectedFile] = useState(initialFile(demo));
   const [highlight, setHighlight] = useState<LineRange | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [thinking, setThinking] = useState(false);
+  const [limits, setLimits] = useState<AnalysisLimits>(DEFAULT_LIMITS);
+  const [importState, setImportState] = useState<ImportState>({ status: "idle" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const counter = useRef(0);
 
@@ -46,6 +68,52 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
+
+  const loadRepository = useCallback(
+    (next: Repository, origin: "demo" | "imported") => {
+      if (timer.current) clearTimeout(timer.current);
+      setRepo(next);
+      setSource(origin);
+      setSelectedFile(initialFile(next));
+      setHighlight(null);
+      setMessages([]);
+      setThinking(false);
+      router.push("/");
+    },
+    [router],
+  );
+
+  const runImport = useCallback(
+    async (task: (onProgress: (stage: string, done: number, total: number) => void) => Promise<Repository>): Promise<boolean> => {
+      setImportState({ status: "running", stage: "Starting", done: 0, total: 1 });
+      try {
+        const next = await task((stage, done, total) => setImportState({ status: "running", stage, done, total }));
+        setImportState({ status: "idle" });
+        loadRepository(next, "imported");
+        return true;
+      } catch (err) {
+        setImportState({ status: "error", message: err instanceof Error ? err.message : "The repository could not be analyzed." });
+        return false;
+      }
+    },
+    [loadRepository],
+  );
+
+  const importZip = useCallback(
+    async (file: File) => {
+      const { analyzeZipFile } = await import("@/analysis/client");
+      return runImport((p) => analyzeZipFile(file, limits, p));
+    },
+    [limits, runImport],
+  );
+
+  const importFolder = useCallback(
+    async (files: File[]) => {
+      const { analyzeFolderFiles } = await import("@/analysis/client");
+      return runImport((p) => analyzeFolderFiles(files, limits, p));
+    },
+    [limits, runImport],
+  );
 
   const openFile = useCallback(
     (path: string, range?: LineRange) => {
@@ -75,10 +143,31 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
   );
 
   const clearMessages = useCallback(() => setMessages([]), []);
+  const clearImportError = useCallback(() => setImportState({ status: "idle" }), []);
+  const resetToDemo = useCallback(() => loadRepository(demo, "demo"), [loadRepository, demo]);
 
   const value = useMemo<ExplorerState>(
-    () => ({ repo, selectedFile, highlight, openFile, assistantOpen, setAssistantOpen, messages, thinking, ask, clearMessages }),
-    [repo, selectedFile, highlight, openFile, assistantOpen, messages, thinking, ask, clearMessages],
+    () => ({
+      repo,
+      source,
+      selectedFile,
+      highlight,
+      openFile,
+      assistantOpen,
+      setAssistantOpen,
+      messages,
+      thinking,
+      ask,
+      clearMessages,
+      limits,
+      setLimits,
+      importState,
+      importZip,
+      importFolder,
+      clearImportError,
+      resetToDemo,
+    }),
+    [repo, source, selectedFile, highlight, openFile, assistantOpen, messages, thinking, ask, clearMessages, limits, importState, importZip, importFolder, clearImportError, resetToDemo],
   );
 
   return <ExplorerContext.Provider value={value}>{children}</ExplorerContext.Provider>;

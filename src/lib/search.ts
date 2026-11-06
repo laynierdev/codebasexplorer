@@ -2,7 +2,7 @@ import type { Repository, SearchMode, SearchResult } from "@/domain/types";
 
 const MAX_RESULTS = 100;
 
-const STOPWORDS = new Set(["the", "a", "an", "is", "are", "of", "to", "in", "on", "for", "and", "how", "where", "what", "does", "do", "with", "this", "that", "code", "handle", "handles"]);
+const STOPWORDS = new Set(["the", "a", "an", "is", "are", "of", "to", "in", "on", "for", "and", "how", "where", "what", "does", "do", "with", "this", "that", "code", "handle", "handles", "handled", "are", "was", "be", "it", "by", "from"]);
 
 /** Tiny concept map used by the MOCK semantic search. Stage 3 replaces this with Gemini-assisted retrieval. */
 const SYNONYMS: Record<string, string[]> = {
@@ -72,7 +72,8 @@ function searchSemantic(repo: Repository, q: string): SearchResult[] {
   const tokens = q
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((t) => t && !STOPWORDS.has(t));
+    .filter((t) => t && !STOPWORDS.has(t))
+    .map((t) => (t.length > 3 ? t.replace(/ies$/, "y").replace(/s$/, "") : t)); // crude plural stemming (mock only)
   const expanded = new Set<string>(tokens);
   for (const t of tokens) for (const s of SYNONYMS[t] ?? []) expanded.add(s);
 

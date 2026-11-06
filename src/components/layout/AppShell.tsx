@@ -22,7 +22,7 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { repo, assistantOpen, setAssistantOpen } = useExplorer();
+  const { repo, source, assistantOpen, setAssistantOpen } = useExplorer();
   const [importOpen, setImportOpen] = useState(false);
   const flush = pathname === "/workspace" || pathname === "/architecture";
 
@@ -52,8 +52,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="dropdown">
             <ProjectSwitcher name={repo.name} onImport={() => setImportOpen(true)} />
           </div>
-          <span className="chip d-none d-md-inline-flex" title="Stage 1 prototype uses a bundled demo repository">
-            <i className="bi bi-box-seam" aria-hidden="true" /> Demo data
+          <span
+            className="chip d-none d-md-inline-flex"
+            title={source === "demo" ? "Bundled sample repository" : "Analyzed in this browser session; it is not saved yet (persistence arrives in Stage 4)"}
+          >
+            <i className={`bi ${source === "demo" ? "bi-box-seam" : "bi-hdd"}`} aria-hidden="true" /> {source === "demo" ? "Demo project" : "Imported · this session"}
           </span>
           <div className="flex-grow-1 d-none d-md-block" />
           <QuickSearch />

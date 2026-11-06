@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { useExplorer } from "@/context/ExplorerContext";
-import { DEMO_FLOWS } from "@/mock/demoFlows";
-import { excerpt, findSymbol } from "@/lib/repo/refs";
+import { excerpt, findSymbol, refForLines } from "@/lib/repo/refs";
 import { EvidenceBadge, PageHeader } from "@/components/ui/primitives";
 
 export default function FlowsPage() {
   const { repo, openFile, ask, setAssistantOpen } = useExplorer();
-  const [flowId, setFlowId] = useState(DEMO_FLOWS[0]?.id ?? "");
+  const flows = repo.flows;
+  const [flowId, setFlowId] = useState(flows[0]?.id ?? "");
   const [open, setOpen] = useState<Set<number>>(new Set());
-  const flow = DEMO_FLOWS.find((f) => f.id === flowId);
+  const flow = flows.find((f) => f.id === flowId) ?? flows[0];
 
   return (
     <>
@@ -20,7 +20,7 @@ export default function FlowsPage() {
           <div className="cx-card">
             <h2 className="cx-card-title">Detected flows</h2>
             <ul className="list-unstyled m-0">
-              {DEMO_FLOWS.map((f) => (
+              {flows.map((f) => (
                 <li key={f.id}>
                   <button
                     type="button"
@@ -42,6 +42,14 @@ export default function FlowsPage() {
         </div>
 
         <div className="col-lg-9">
+          {!flow && (
+            <div className="cx-card">
+              <div className="cx-card-body text-muted">
+                No execution flows were detected. Flows are derived from API endpoints whose handlers could be resolved (Express-style routers and Next.js route files). This repository has{" "}
+                {repo.endpoints.length} detected endpoint(s).
+              </div>
+            </div>
+          )}
           {flow && (
             <div className="cx-card">
               <h2 className="cx-card-title">
@@ -64,8 +72,11 @@ export default function FlowsPage() {
                 <p>{flow.summary}</p>
                 <ol className="list-unstyled mb-0">
                   {flow.steps.map((s, i) => {
-                    const sym = findSymbol(repo, s.file, s.symbol);
-                    const ref = sym ? { file: s.file, startLine: sym.startLine, endLine: sym.endLine, symbol: s.symbol } : undefined;
+                    // Use the step's explicit lines when present; otherwise resolve them from the symbol.
+                    const sym = s.startLine ? undefined : findSymbol(repo, s.file, s.symbol);
+                    const start = s.startLine ?? sym?.startLine;
+                    const end = s.endLine ?? sym?.endLine;
+                    const ref = start && end ? refForLines(repo, s.file, start, end) : undefined;
                     const code = ref && open.has(i) ? excerpt(repo, ref) : undefined;
                     return (
                       <li key={i} className={`flow-step ${s.evidence}`}>

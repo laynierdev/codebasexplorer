@@ -1,6 +1,7 @@
 import type { AnswerBlock, Repository, SourceRef } from "@/domain/types";
 import { buildGraphIndex, computeImpact, findCycles, findLayerViolations } from "@/lib/graph/analysis";
 import { compact, getFile, getSymbols, lineOfText, refForLines, refForSymbol } from "@/lib/repo/refs";
+import { searchRepository } from "@/lib/search";
 
 /**
  * MOCK assistant. It answers from the analyzed repository model with keyword routing,
@@ -12,7 +13,7 @@ export interface AssistantContext {
   selectedFile?: string;
 }
 
-export const SUGGESTED_QUESTIONS = [
+const DEMO_QUESTIONS = [
   "Explain this project to me",
   "How does authentication work?",
   "Explain the request lifecycle for placing an order",
@@ -21,10 +22,17 @@ export const SUGGESTED_QUESTIONS = [
   "Identify potential architectural problems",
 ];
 
+const GENERIC_QUESTIONS = ["Explain this project to me", "Identify potential architectural problems"];
+
+export function suggestedQuestions(repo: Repository): string[] {
+  return repo.id === "acme-shop-api" ? DEMO_QUESTIONS : GENERIC_QUESTIONS;
+}
+
 export function answerQuestion(repo: Repository, question: string, ctx: AssistantContext): AnswerBlock[] {
   const q = question.toLowerCase();
   const mentioned = repo.files.find((f) => q.includes(f.path.toLowerCase()));
   if (mentioned && /(affect|impact|modify|break|change)/.test(q)) return impactAnswer(repo, mentioned.path);
+  if (repo.id !== DEMO_REPO_ID) return genericAnswer(repo, question, ctx);
   if (/(this file|selected file|current file|explain this)/.test(q) && ctx.selectedFile && !/project/.test(q)) {
     return explainFile(repo, ctx.selectedFile);
   }
@@ -40,6 +48,46 @@ export function answerQuestion(repo: Repository, question: string, ctx: Assistan
       text: "I could not find enough evidence in the analyzed repository to answer that confidently, so I will not guess. Try naming a file, module or feature, or pick one of the suggested questions.",
     },
   ];
+}
+
+const DEMO_REPO_ID = "acme-shop-api";
+
+/**
+ * Answers for any imported repository, built only from analysis facts (the scripted answers above
+ * are specific to the demo project). Stage 3 replaces this with Gemini over retrieved context.
+ */
+function genericAnswer(repo: Repository, question: string, ctx: AssistantContext): AnswerBlock[] {
+  const q = question.toLowerCase();
+  if (/(this file|selected file|current file)/.test(q) && ctx.selectedFile) return explainFile(repo, ctx.selectedFile);
+  if (/(problem|concern|smell|circular|cycle|weakness|risk)/.test(q)) return architectureConcerns(repo);
+  if (/(project|overview|what does|about|explain)/.test(q)) return genericOverview(repo);
+
+  const hits = searchRepository(repo, question, "semantic");
+  if (hits.length === 0) {
+    return [{ kind: "uncertain", text: "I could not find files in the analyzed repository that match that question, so I will not guess. Try naming a file, symbol or feature, or use Search." }];
+  }
+  return [
+    {
+      kind: "inference",
+      text: "These files look most related to your question, judged only by file names, descriptions and symbol names (the mock provider cannot read meaning; Gemini arrives in Stage 3).",
+      refs: compact(hits.slice(0, 5).map((h) => refForLines(repo, h.file, h.line, h.line))),
+    },
+  ];
+}
+
+function genericOverview(repo: Repository): AnswerBlock[] {
+  const languages = repo.languages.slice(0, 3).map((l) => `${l.language} (${l.files} files)`).join(", ");
+  const entry = repo.entryPoints[0];
+  const blocks: AnswerBlock[] = [
+    { kind: "fact", text: `${repo.name}: ${repo.analysis.analyzedFiles} files analyzed (${repo.analysis.parsedFiles} parsed). Main languages: ${languages || "none"}. ${repo.technologies.length ? "Technologies: " + repo.technologies.join(", ") + "." : ""}` },
+  ];
+  if (entry) {
+    const line = repo.symbols.find((s) => s.file === entry.path)?.startLine ?? 1;
+    blocks.push({ kind: "fact", text: `Likely entry point: ${entry.path} (${entry.reason}).`, refs: compact([refForLines(repo, entry.path, line, line)]) });
+  }
+  if (repo.endpoints.length) blocks.push({ kind: "fact", text: `${repo.endpoints.length} API endpoint(s) detected, e.g. ${repo.endpoints.slice(0, 3).map((e) => e.method + " " + e.path).join(", ")}.` });
+  blocks.push({ kind: "recommendation", text: "Open the Dashboard for the full picture, then follow a flow in the Flows view." });
+  return blocks;
 }
 
 function refs(repo: Repository, pairs: [string, string][]): SourceRef[] {
@@ -158,18 +206,23 @@ function architectureConcerns(repo: Repository): AnswerBlock[] {
     });
   }
   if (violations.length) {
+    const target = violations[0]?.to ?? "";
     blocks.push({
       kind: "fact",
-      text: violations.length + " service files import HttpError from the HTTP middleware layer, coupling business logic to Express-specific code.",
-      refs: refs(repo, [["src/middleware/error.middleware.ts", "HttpError"]]),
+      text: violations.length + " service file(s) import from the HTTP middleware layer (" + [...new Set(violations.map((v) => v.to))].join(", ") + "), coupling business logic to the web framework.",
+      refs: compact([refForLines(repo, target, 1, 1)]),
     });
   }
-  blocks.push({
-    kind: "inference",
-    text: "Order placement is not transactional (save, charge, stock update are separate queries).",
-    refs: refs(repo, [["src/services/order.service.ts", "placeOrder"]]),
-  });
-  blocks.push({ kind: "recommendation", text: "Move HttpError to a neutral errors module, and extract shared token helpers to break the auth ⇄ email cycle." });
+  if (repo.id === DEMO_REPO_ID) {
+    blocks.push({
+      kind: "inference",
+      text: "Order placement is not transactional (save, charge, stock update are separate queries).",
+      refs: refs(repo, [["src/services/order.service.ts", "placeOrder"]]),
+    });
+    blocks.push({ kind: "recommendation", text: "Move HttpError to a neutral errors module, and extract shared token helpers to break the auth ⇄ email cycle." });
+  } else if (cycles.length === 0 && violations.length === 0) {
+    blocks.push({ kind: "fact", text: "No circular dependencies or layering violations were found through static imports." });
+  }
   blocks.push({ kind: "uncertain", text: "These findings come from static imports only; runtime wiring or code outside this repository is not visible to me." });
   return blocks;
 }

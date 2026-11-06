@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Layer } from "@/domain/types";
 import { useExplorer } from "@/context/ExplorerContext";
-import { findCycles, LAYER_LABEL, layerOf } from "@/lib/graph/analysis";
+import { findCycles, LAYER_LABEL, layerOf, mostImported } from "@/lib/graph/analysis";
 import { FileDetails } from "@/components/explorer/FileDetails";
 import { PageHeader, SourceLink } from "@/components/ui/primitives";
 
@@ -14,7 +14,8 @@ export default function DependenciesPage() {
   const [tab, setTab] = useState<Tab>("files");
   const [filter, setFilter] = useState("");
   const parsed = useMemo(() => repo.files.filter((f) => f.parsed), [repo]);
-  const [selected, setSelected] = useState(parsed.find((f) => f.path === "src/services/order.service.ts")?.path ?? parsed[0]?.path ?? "");
+  // Start with the most depended-on file: the most informative place to begin.
+  const [selected, setSelected] = useState(() => mostImported(repo) ?? parsed[0]?.path ?? "");
 
   const cycles = useMemo(() => findCycles(repo), [repo]);
   const cycleFiles = useMemo(() => new Set(cycles.flat()), [cycles]);

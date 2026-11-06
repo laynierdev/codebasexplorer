@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { AnswerBlock, AssistantMessage } from "@/domain/types";
 import { useExplorer } from "@/context/ExplorerContext";
-import { SUGGESTED_QUESTIONS } from "@/lib/assistant/mockAssistant";
+import { suggestedQuestions } from "@/lib/assistant/mockAssistant";
 import { excerpt } from "@/lib/repo/refs";
 import { EvidenceBadge, formatRef } from "@/components/ui/primitives";
 
 export function AssistantPanel() {
-  const { messages, thinking, ask, clearMessages, setAssistantOpen, selectedFile } = useExplorer();
+  const { repo, messages, thinking, ask, clearMessages, setAssistantOpen, selectedFile } = useExplorer();
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +53,7 @@ export function AssistantPanel() {
               Current file: <span className="mono">{selectedFile}</span>
             </p>
             <div className="d-flex flex-column gap-2 mt-3">
-              {SUGGESTED_QUESTIONS.map((q) => (
+              {suggestedQuestions(repo).map((q) => (
                 <button key={q} type="button" className="btn btn-sm btn-outline-secondary text-start" onClick={() => ask(q)}>
                   {q}
                 </button>

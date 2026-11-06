@@ -1,155 +1,40 @@
-/**
- * Domain types for CodebaseXplorer.
- * Stage 1 uses plain TypeScript types; Stage 2 will turn these into Zod schemas
- * (the source of truth) and infer the types from them.
- */
+import type { z } from "zod";
+import type * as s from "./schemas";
 
-export type Language = "typescript" | "javascript" | "json" | "markdown" | "sql" | "python" | "text";
+/** Domain types, inferred from the Zod schemas in `./schemas.ts` (the source of truth). */
 
-export type FileKind = "source" | "test" | "config" | "doc" | "script";
+export type { TreeNode } from "./schemas";
 
-export interface SourceFile {
-  path: string;
-  name: string;
-  dir: string;
-  ext: string;
-  language: Language;
-  kind: FileKind;
-  size: number;
-  lineCount: number;
-  content: string;
-  /** Short human-readable purpose (mock: hand-written; later: AI + heuristics). */
-  purpose: string;
-  /** True when the file has been parsed for symbols/dependencies (otherwise text-only). */
-  parsed: boolean;
-}
+export type Language = z.infer<typeof s.LanguageSchema>;
+export type FileKind = z.infer<typeof s.FileKindSchema>;
+export type Layer = z.infer<typeof s.LayerSchema>;
+export type SourceFile = z.infer<typeof s.SourceFileSchema>;
+export type Directory = z.infer<typeof s.DirectorySchema>;
+export type SymbolKind = z.infer<typeof s.SymbolKindSchema>;
+export type SourceSymbol = z.infer<typeof s.SourceSymbolSchema>;
+export type FileDependency = z.infer<typeof s.FileDependencySchema>;
+export type ExternalDependency = z.infer<typeof s.ExternalDependencySchema>;
+export type ExternalUsage = z.infer<typeof s.ExternalUsageSchema>;
+export type EntryPoint = z.infer<typeof s.EntryPointSchema>;
+export type SourceRef = z.infer<typeof s.SourceRefSchema>;
+export type ApiEndpoint = z.infer<typeof s.ApiEndpointSchema>;
+export type Module = z.infer<typeof s.ModuleSchema>;
+export type ModuleDependency = z.infer<typeof s.ModuleDependencySchema>;
+export type ArchNode = z.infer<typeof s.ArchNodeSchema>;
+export type ArchEdge = z.infer<typeof s.ArchEdgeSchema>;
+export type FlowStep = z.infer<typeof s.FlowStepSchema>;
+export type ExecutionFlow = z.infer<typeof s.ExecutionFlowSchema>;
+export type SkipReason = z.infer<typeof s.SkipReasonSchema>;
+export type SkippedItem = z.infer<typeof s.SkippedItemSchema>;
+export type AnalysisResult = z.infer<typeof s.AnalysisResultSchema>;
+export type LanguageStat = z.infer<typeof s.LanguageStatSchema>;
+export type Repository = z.infer<typeof s.RepositorySchema>;
+export type SearchMode = z.infer<typeof s.SearchModeSchema>;
+export type SearchResult = z.infer<typeof s.SearchResultSchema>;
+export type ImpactResult = z.infer<typeof s.ImpactResultSchema>;
+export type AnalysisLimits = z.infer<typeof s.AnalysisLimitsSchema>;
 
-export interface TreeNode {
-  name: string;
-  path: string;
-  type: "dir" | "file";
-  children?: TreeNode[];
-}
-
-export type SymbolKind = "function" | "class" | "interface" | "type" | "const";
-
-export interface SourceSymbol {
-  name: string;
-  kind: SymbolKind;
-  file: string;
-  startLine: number;
-  endLine: number;
-  exported: boolean;
-}
-
-export interface FileDependency {
-  from: string;
-  to: string;
-  line: number;
-  typeOnly: boolean;
-}
-
-export interface ExternalDependency {
-  name: string;
-  version: string;
-  dev: boolean;
-}
-
-export type Layer =
-  | "entry"
-  | "route"
-  | "controller"
-  | "service"
-  | "repository"
-  | "database"
-  | "middleware"
-  | "config"
-  | "model"
-  | "test"
-  | "external"
-  | "other";
-
-export interface ArchNode {
-  id: string;
-  label: string;
-  layer: Layer;
-  /** Source file this node maps to (absent for external systems). */
-  file?: string;
-  description: string;
-}
-
-export interface ArchEdge {
-  id: string;
-  source: string;
-  target: string;
-  label?: string;
-  /** "static" = derived from imports; "declared" = external integration detected from a package. */
-  evidence: "static" | "declared";
-}
-
-export interface SourceRef {
-  file: string;
-  startLine: number;
-  endLine: number;
-  symbol?: string;
-}
-
-export interface ApiEndpoint {
-  method: string;
-  path: string;
-  file: string;
-  line: number;
-  handler?: string;
-}
-
-export type SkipReason = "ignored-directory" | "ignored-pattern" | "binary" | "too-large" | "unsupported-language";
-
-export interface SkippedItem {
-  path: string;
-  reason: SkipReason;
-  detail: string;
-  /** Number of files inside when the item is a directory. */
-  fileCount?: number;
-}
-
-export interface Repository {
-  id: string;
-  name: string;
-  description: string;
-  files: SourceFile[];
-  tree: TreeNode;
-  symbols: SourceSymbol[];
-  dependencies: FileDependency[];
-  externalDependencies: ExternalDependency[];
-  endpoints: ApiEndpoint[];
-  entryPoints: string[];
-  technologies: string[];
-  languages: { language: Language; files: number; lines: number }[];
-  directoryCount: number;
-  skipped: SkippedItem[];
-  analysis: { status: "complete" | "partial"; analyzedFiles: number; parsedFiles: number; durationMs: number };
-}
-
-/* ---------- Execution flows ---------- */
-
-export interface FlowStep {
-  title: string;
-  description: string;
-  file: string;
-  symbol: string;
-  /** "verified" = every hop is a static call/import chain; "inferred" = reasoning on top of the code. */
-  evidence: "verified" | "inferred";
-}
-
-export interface ExecutionFlow {
-  id: string;
-  title: string;
-  trigger: string;
-  summary: string;
-  steps: FlowStep[];
-}
-
-/* ---------- Assistant ---------- */
+/* ---------- Assistant (Stage 3 will add schemas for structured AI output) ---------- */
 
 export type ClaimKind = "fact" | "inference" | "recommendation" | "uncertain";
 
@@ -165,29 +50,4 @@ export interface AssistantMessage {
   text?: string;
   blocks?: AnswerBlock[];
   provider?: "mock" | "gemini";
-}
-
-/* ---------- Search ---------- */
-
-export type SearchMode = "files" | "text" | "symbols" | "semantic";
-
-export interface SearchResult {
-  file: string;
-  line: number;
-  title: string;
-  excerpt: string;
-  kind: SearchMode;
-  score?: number;
-}
-
-/* ---------- Impact ---------- */
-
-export interface ImpactResult {
-  target: string;
-  directDependents: string[];
-  transitiveDependents: string[];
-  affectedTests: string[];
-  affectedRoutes: ApiEndpoint[];
-  dependencies: string[];
-  cycles: string[][];
 }

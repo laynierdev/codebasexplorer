@@ -722,3 +722,13 @@ pre.doc-preview {
     scroll-behavior: auto !important;
   }
 }
+
+/* Layers added with real analysis */
+:root {
+  --layer-component: #0d7d9b;
+  --layer-page: #6f42c1;
+  --layer-util: #6e7781;
+}
+.cx-node.layer-component { border-color: var(--layer-component); }
+.cx-node.layer-page { border-color: var(--layer-page); }
+.cx-node.layer-util { border-color: var(--layer-util); }

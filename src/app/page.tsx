@@ -6,14 +6,17 @@ import { useExplorer } from "@/context/ExplorerContext";
 import { buildGraphIndex, findCycles, findLayerViolations, LAYER_LABEL, layerOf } from "@/lib/graph/analysis";
 import { getFile } from "@/lib/repo/refs";
 import { PageHeader, SourceLink } from "@/components/ui/primitives";
+import { EXTERNAL_SYSTEMS } from "@/analysis/technologies";
 import type { Layer } from "@/domain/types";
 
 const REASON_LABEL: Record<string, string> = {
   "ignored-directory": "Ignored directory",
   "ignored-pattern": "Ignored pattern",
+  gitignore: ".gitignore",
   binary: "Binary file",
   "too-large": "Too large",
-  "unsupported-language": "Unsupported",
+  "over-file-limit": "Over file limit",
+  undecodable: "Not decodable",
 };
 
 export default function DashboardPage() {
@@ -33,6 +36,7 @@ export default function DashboardPage() {
       modules: [...modules.entries()].sort((a, b) => b[1] - a[1]),
       topImported: [...index.incoming.entries()].filter(([, v]) => v.length).sort((a, b) => b[1].length - a[1].length).slice(0, 5),
       lines: repo.files.reduce((s, f) => s + f.lineCount, 0),
+      externals: [...new Set(repo.externalUsages.map((u) => EXTERNAL_SYSTEMS.find((s) => s.packages.includes(u.package))?.label).filter((l): l is string => Boolean(l)))],
     };
   }, [repo]);
 
@@ -69,7 +73,7 @@ export default function DashboardPage() {
         {[
           ["Files analyzed", repo.analysis.analyzedFiles],
           ["Parsed (symbols + deps)", repo.analysis.parsedFiles],
-          ["Directories", repo.directoryCount],
+          ["Directories", repo.directories.length],
           ["Lines of code", data.lines],
           ["API endpoints", repo.endpoints.length],
           ["Symbols", repo.symbols.length],
@@ -127,13 +131,15 @@ export default function DashboardPage() {
               <div className="stat-label mb-1">Entry points</div>
               <ul className="list-unstyled mb-3">
                 {repo.entryPoints.map((e) => (
-                  <li key={e}>
-                    <SourceLink file={e} /> <span className="text-muted">— {getFile(repo, e)?.purpose}</span>
+                  <li key={e.path}>
+                    <SourceLink file={e.path} /> <span className="text-muted">— {getFile(repo, e.path)?.purpose} ({e.reason})</span>
                   </li>
                 ))}
+                {repo.entryPoints.length === 0 && <li className="text-muted">No entry point could be detected from package.json or framework conventions.</li>}
               </ul>
               <div className="stat-label mb-1">Detected API endpoints</div>
               <div className="d-flex flex-wrap gap-1">
+                {repo.endpoints.length === 0 && <span className="text-muted">None detected (Express-style routers and Next.js route files are supported).</span>}
                 {repo.endpoints.map((e) => (
                   <button
                     key={e.method + e.path}
@@ -168,8 +174,8 @@ export default function DashboardPage() {
                 ))}
               </div>
               <p className="text-muted mt-3 mb-0">
-                Architecture summary: a classic layered REST API. Requests flow routes → controllers → services → repositories → PostgreSQL, with Stripe and SMTP as external
-                integrations. Derived from directory structure and imports.
+                Architecture summary: {data.modules.length} layer(s) detected from directory names and file conventions
+                {data.externals.length > 0 ? `, talking to ${data.externals.join(", ")}` : ""}. Derived from directory structure and imports, not from AI.
               </p>
             </div>
           </section>
@@ -221,13 +227,18 @@ export default function DashboardPage() {
                 {data.violations.length > 0 && (
                   <li>
                     <span className="evidence fact me-2">Fact</span>
-                    {data.violations.length} service files import from <SourceLink file="src/middleware/error.middleware.ts" />, coupling business logic to the HTTP layer.
+                    {data.violations.length} service file(s) import from the HTTP middleware layer ({[...new Set(data.violations.map((v) => v.to))].join(", ")}), coupling business logic to the web framework.
                   </li>
                 )}
-                <li>
-                  <span className="evidence inference me-2">Inference</span>
-                  Order placement runs several writes without a transaction (see the Place an order flow).
-                </li>
+                {repo.analysis.warnings.map((w) => (
+                  <li key={w}>
+                    <span className="evidence fact me-2">Fact</span>
+                    {w}
+                  </li>
+                ))}
+                {data.cycles.length === 0 && data.violations.length === 0 && repo.analysis.warnings.length === 0 && (
+                  <li className="text-muted">No circular dependencies, layering violations or analysis warnings were found.</li>
+                )}
               </ul>
             </div>
           </section>
@@ -242,7 +253,7 @@ export default function DashboardPage() {
             <div className="cx-card-body">
               <p>
                 Analyzed <strong>{repo.analysis.analyzedFiles}</strong> files in {repo.analysis.durationMs} ms. Skipped about <strong>{skippedFiles.toLocaleString()}</strong> files across{" "}
-                {repo.skipped.length} items. Python and SQL files are indexed as text only.
+                {repo.skipped.length} items. {repo.analysis.parsedFiles} files were parsed for symbols and imports; {repo.analysis.textOnlyFiles} are indexed as text only (unsupported language or non-code).
               </p>
               <div className="table-responsive">
                 <table className="table table-sm align-middle mb-0">

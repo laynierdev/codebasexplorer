@@ -9,45 +9,57 @@ export interface HighlightToken {
 
 let highlighterPromise: Promise<HighlighterCore> | null = null;
 
-/** Lazily creates one shared highlighter with only the grammars we need (keeps the bundle small). */
+/** Lazily creates one shared highlighter; grammars are loaded on demand to keep the bundle small. */
 function getHighlighter(): Promise<HighlighterCore> {
   highlighterPromise ??= (async () => {
-    const [{ createHighlighterCore }, { createJavaScriptRegexEngine }] = await Promise.all([
-      import("shiki/core"),
-      import("shiki/engine/javascript"),
-    ]);
-    return createHighlighterCore({
-      themes: [import("@shikijs/themes/github-light")],
-      langs: [
-        import("@shikijs/langs/typescript"),
-        import("@shikijs/langs/json"),
-        import("@shikijs/langs/markdown"),
-        import("@shikijs/langs/sql"),
-        import("@shikijs/langs/python"),
-      ],
-      engine: createJavaScriptRegexEngine(),
-    });
+    const [{ createHighlighterCore }, { createJavaScriptRegexEngine }] = await Promise.all([import("shiki/core"), import("shiki/engine/javascript")]);
+    return createHighlighterCore({ themes: [import("@shikijs/themes/github-light")], langs: [], engine: createJavaScriptRegexEngine() });
   })();
   return highlighterPromise;
 }
 
-const SHIKI_LANG: Partial<Record<Language, string>> = {
-  typescript: "typescript",
-  javascript: "typescript",
-  json: "json",
-  markdown: "markdown",
-  sql: "sql",
-  python: "python",
+/** Grammar loaders by Shiki language id. */
+const GRAMMARS: Record<string, () => Promise<unknown>> = {
+  typescript: () => import("@shikijs/langs/typescript"),
+  tsx: () => import("@shikijs/langs/tsx"),
+  javascript: () => import("@shikijs/langs/javascript"),
+  jsx: () => import("@shikijs/langs/jsx"),
+  json: () => import("@shikijs/langs/json"),
+  markdown: () => import("@shikijs/langs/markdown"),
+  sql: () => import("@shikijs/langs/sql"),
+  python: () => import("@shikijs/langs/python"),
+  css: () => import("@shikijs/langs/css"),
+  html: () => import("@shikijs/langs/html"),
+  yaml: () => import("@shikijs/langs/yaml"),
+  shellscript: () => import("@shikijs/langs/shellscript"),
+  go: () => import("@shikijs/langs/go"),
+  java: () => import("@shikijs/langs/java"),
+  rust: () => import("@shikijs/langs/rust"),
+  ruby: () => import("@shikijs/langs/ruby"),
+  php: () => import("@shikijs/langs/php"),
+  csharp: () => import("@shikijs/langs/csharp"),
+  c: () => import("@shikijs/langs/c"),
+  cpp: () => import("@shikijs/langs/cpp"),
 };
 
+function shikiLanguage(language: Language, ext: string): string | undefined {
+  if (language === "typescript") return ext === "tsx" ? "tsx" : "typescript";
+  if (language === "javascript") return ext === "jsx" ? "jsx" : "javascript";
+  if (language === "shell") return "shellscript";
+  return GRAMMARS[language] ? language : undefined;
+}
+
 /** Returns one token array per source line. Unsupported languages come back as plain text. */
-export async function highlightLines(code: string, language: Language): Promise<HighlightToken[][]> {
-  const lang = SHIKI_LANG[language];
-  if (!lang) return code.split("\n").map((line) => [{ content: line }]);
+export async function highlightLines(code: string, language: Language, ext = ""): Promise<HighlightToken[][]> {
+  const plain = () => code.split("\n").map((line) => [{ content: line }]);
+  const lang = shikiLanguage(language, ext);
+  const load = lang ? GRAMMARS[lang] : undefined;
+  if (!lang || !load) return plain();
   try {
     const highlighter = await getHighlighter();
+    if (!highlighter.getLoadedLanguages().includes(lang)) await highlighter.loadLanguage(load() as never);
     return highlighter.codeToTokensBase(code, { lang, theme: "github-light" }) as HighlightToken[][];
   } catch {
-    return code.split("\n").map((line) => [{ content: line }]);
+    return plain();
   }
 }

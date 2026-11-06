@@ -17,13 +17,13 @@ export function SourceViewer({ file, highlight }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    highlightLines(file.content, file.language).then((lines) => {
+    highlightLines(file.content, file.language, file.ext).then((lines) => {
       if (!cancelled) setTokens({ path: file.path, lines });
     });
     return () => {
       cancelled = true;
     };
-  }, [file.path, file.content, file.language]);
+  }, [file.path, file.content, file.language, file.ext]);
 
   useEffect(() => {
     hlRef.current?.scrollIntoView({ block: "center" });

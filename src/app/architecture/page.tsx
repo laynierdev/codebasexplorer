@@ -17,16 +17,25 @@ export default function ArchitecturePage() {
   const [view, setView] = useState<View>("modules");
   const [hidden, setHidden] = useState<Set<Layer>>(new Set());
   const [selected, setSelected] = useState<string | null>(null);
+  /** Directory the file view is limited to (set by "Show files" on a module). */
+  const [scope, setScope] = useState<string | null>(null);
 
   const full = useMemo(() => (view === "modules" ? buildModuleGraph(repo) : buildFileGraph(repo)), [repo, view]);
   const layers = useMemo(() => [...new Set(full.nodes.map((n) => n.layer))], [full]);
 
   const graph = useMemo(() => {
-    const nodes = full.nodes.filter((n) => !hidden.has(n.layer));
+    const inScope = (n: { file?: string }) => !scope || (scope === "." ? !n.file?.includes("/") : n.file?.startsWith(scope + "/"));
+    let nodes = full.nodes.filter((n) => !hidden.has(n.layer) && (n.layer === "external" || inScope(n)));
+    if (scope) {
+      // Keep external systems only when a file in scope uses them.
+      const keptFiles = new Set(nodes.filter((n) => n.layer !== "external").map((n) => n.id));
+      const used = new Set(full.edges.filter((e) => keptFiles.has(e.source)).map((e) => e.target));
+      nodes = nodes.filter((n) => n.layer !== "external" || used.has(n.id));
+    }
     const ids = new Set(nodes.map((n) => n.id));
     const edges = full.edges.filter((e) => ids.has(e.source) && ids.has(e.target));
     return { nodes: layoutGraph({ nodes, edges }, narrow ? "TB" : "LR"), edges };
-  }, [full, hidden, narrow]);
+  }, [full, hidden, scope, narrow]);
 
   const selectedNode = full.nodes.find((n) => n.id === selected);
   const incoming = full.edges.filter((e) => e.target === selected);
@@ -41,16 +50,11 @@ export default function ArchitecturePage() {
       return next;
     });
 
-  const switchView = (v: View, onlyLayer?: Layer) => {
+  const switchView = (v: View, scopeDir: string | null = null) => {
     setView(v);
     setSelected(null);
-    if (onlyLayer) {
-      const all = new Set<Layer>(buildFileGraph(repo).nodes.map((n) => n.layer));
-      all.delete(onlyLayer);
-      setHidden(all);
-    } else {
-      setHidden(new Set());
-    }
+    setScope(scopeDir);
+    setHidden(new Set());
   };
 
   return (
@@ -73,14 +77,23 @@ export default function ArchitecturePage() {
             </button>
           ))}
         </div>
-        <span className="text-muted small ms-auto">Solid edges: imports. Dashed: external integrations. Models and tests are omitted to reduce noise.</span>
+        {scope !== null && (
+          <span className="chip">
+            Scope: <span className="mono">{scope === "." ? "(root)" : scope}</span>
+            <button type="button" className="btn-close ms-1" style={{ fontSize: "0.55rem" }} aria-label="Clear scope" onClick={() => switchView("files")} />
+          </span>
+        )}
+        <span className="text-muted small ms-auto">
+          Solid edges: imports. Dashed: external integrations. Models, tests and unconnected files are omitted to reduce noise.
+          {full.omitted > 0 && ` ${full.omitted} less-connected file(s) are hidden; use the Modules view or filters to explore them.`}
+        </span>
       </div>
 
       <div className="arch-body">
         <div className="arch-graph">
           {graph.nodes.length ? (
             <GraphCanvas
-              key={view + narrow + [...hidden].join()}
+              key={view + narrow + scope + [...hidden].join()}
               nodes={graph.nodes}
               edges={graph.edges}
               selectedId={selected}
@@ -111,7 +124,7 @@ export default function ArchitecturePage() {
                   </button>
                 )}
                 {view === "modules" && (
-                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => switchView("files", selectedNode.layer)}>
+                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => switchView("files", selectedNode.id.slice("module:".length))}>
                     Show files
                   </button>
                 )}
