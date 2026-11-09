@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/ui/primitives";
 const MB = 1024 * 1024;
 
 export default function SettingsPage() {
-  const { limits, setLimits } = useExplorer();
+  const { limits, setLimits, aiStatus } = useExplorer();
   const [maxArchiveMb, setMaxArchiveMb] = useState(limits.maxArchiveBytes / MB);
   const [maxFileKb, setMaxFileKb] = useState(limits.maxFileBytes / 1024);
   const [maxFiles, setMaxFiles] = useState(limits.maxFiles);
@@ -61,18 +61,34 @@ export default function SettingsPage() {
           <section className="cx-card h-100">
             <h2 className="cx-card-title">AI provider</h2>
             <div className="cx-card-body">
-              <div className="form-check">
-                <input className="form-check-input" type="radio" name="provider" id="p-mock" defaultChecked />
-                <label className="form-check-label" htmlFor="p-mock">
-                  Mock provider <span className="text-muted">— works without credentials, answers from the analyzed repository</span>
-                </label>
-              </div>
-              <div className="form-check">
-                <input className="form-check-input" type="radio" name="provider" id="p-gemini" disabled />
-                <label className="form-check-label text-muted" htmlFor="p-gemini">
-                  Gemini <span>— available in Stage 3. The API key will stay server-side.</span>
-                </label>
-              </div>
+              {aiStatus === null ? (
+                <p className="text-muted mb-0">Could not read the AI status from the server.</p>
+              ) : (
+                <>
+                  <dl className="row mb-2">
+                    <dt className="col-sm-5">Answering now</dt>
+                    <dd className="col-sm-7">{aiStatus.provider === "gemini" ? "Gemini" : "Mock provider"}</dd>
+                    {aiStatus.model && (
+                      <>
+                        <dt className="col-sm-5">Model</dt>
+                        <dd className="col-sm-7 mono">{aiStatus.model}</dd>
+                      </>
+                    )}
+                    <dt className="col-sm-5">Mode (AI_PROVIDER)</dt>
+                    <dd className="col-sm-7 mono">{aiStatus.mode}</dd>
+                    <dt className="col-sm-5">API key</dt>
+                    <dd className="col-sm-7">{aiStatus.keyConfigured ? "Configured on the server (never shown)" : "Not configured"}</dd>
+                    <dt className="col-sm-5">Fallback to mock</dt>
+                    <dd className="col-sm-7">{aiStatus.fallbackToMock ? "Yes, flagged in the UI" : "No, errors are shown"}</dd>
+                  </dl>
+                  {aiStatus.issues.map((i) => (
+                    <div key={i} className="alert alert-warning py-1 px-2 small mb-1" role="status">
+                      {i}
+                    </div>
+                  ))}
+                </>
+              )}
+              <p className="text-muted small mb-0 mt-2">Configured with environment variables on the server (see .env.example). Only short context excerpts selected for each question are sent to the model, never the whole repository.</p>
             </div>
           </section>
         </div>

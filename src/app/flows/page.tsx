@@ -6,7 +6,7 @@ import { excerpt, findSymbol, refForLines } from "@/lib/repo/refs";
 import { EvidenceBadge, PageHeader } from "@/components/ui/primitives";
 
 export default function FlowsPage() {
-  const { repo, openFile, ask, setAssistantOpen } = useExplorer();
+  const { repo, openFile, runTask } = useExplorer();
   const flows = repo.flows;
   const [flowId, setFlowId] = useState(flows[0]?.id ?? "");
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -59,10 +59,7 @@ export default function FlowsPage() {
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-primary"
-                  onClick={() => {
-                    setAssistantOpen(true);
-                    ask(`Explain the request lifecycle: ${flow.title}`);
-                  }}
+                  onClick={() => runTask({ task: "flow", flowId: flow.id }, `Explain the flow: ${flow.title}`)}
                 >
                   <i className="bi bi-stars me-1" aria-hidden="true" />
                   Ask AI to explain

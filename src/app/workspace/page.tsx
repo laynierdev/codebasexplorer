@@ -13,7 +13,7 @@ import { layerOf } from "@/lib/graph/analysis";
 type Tab = "code" | "deps" | "graph";
 
 export default function WorkspacePage() {
-  const { repo, selectedFile, highlight, openFile, ask, setAssistantOpen } = useExplorer();
+  const { repo, selectedFile, highlight, openFile, runTask } = useExplorer();
   const [tab, setTab] = useState<Tab>("code");
   const file = getFile(repo, selectedFile);
   const symbols = getSymbols(repo, selectedFile);
@@ -42,10 +42,7 @@ export default function WorkspacePage() {
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-primary ms-auto"
-                  onClick={() => {
-                    setAssistantOpen(true);
-                    ask("Explain this file");
-                  }}
+                  onClick={() => runTask({ task: "explain-file", path: file.path }, `Explain ${file.path}`)}
                 >
                   <i className="bi bi-stars me-1" aria-hidden="true" />
                   Explain this file

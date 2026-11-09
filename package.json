@@ -9,10 +9,12 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:live": "node scripts/test-live.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.3",
+    "@google/genai": "^3.0.0",
     "@shikijs/langs": "^4.6.0",
     "@shikijs/themes": "^4.6.0",
     "@xyflow/react": "^12.12.1",

@@ -12,7 +12,7 @@ import { LayerBadge, SourceLink } from "@/components/ui/primitives";
 type View = "modules" | "files";
 
 export default function ArchitecturePage() {
-  const { repo, openFile } = useExplorer();
+  const { repo, openFile, runTask, thinking } = useExplorer();
   const narrow = useIsNarrow();
   const [view, setView] = useState<View>("modules");
   const [hidden, setHidden] = useState<Set<Layer>>(new Set());
@@ -77,6 +77,10 @@ export default function ArchitecturePage() {
             </button>
           ))}
         </div>
+        <button type="button" className="btn btn-sm btn-outline-primary" disabled={thinking} onClick={() => runTask({ task: "architecture" }, "Explain the architecture of this repository")}>
+          <i className="bi bi-stars me-1" aria-hidden="true" />
+          Explain architecture
+        </button>
         {scope !== null && (
           <span className="chip">
             Scope: <span className="mono">{scope === "." ? "(root)" : scope}</span>

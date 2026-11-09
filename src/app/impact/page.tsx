@@ -20,7 +20,7 @@ const POTENTIAL: Partial<Record<Layer, string[]>> = {
 };
 
 export default function ImpactPage() {
-  const { repo, ask, setAssistantOpen } = useExplorer();
+  const { repo, runTask } = useExplorer();
   const parsed = useMemo(() => repo.files.filter((f) => f.parsed), [repo]);
   const [target, setTarget] = useState(() => mostImported(repo) ?? parsed[0]?.path ?? "");
   const [symbol, setSymbol] = useState("");
@@ -73,10 +73,7 @@ export default function ImpactPage() {
             <button
               type="button"
               className="btn btn-sm btn-outline-primary w-100"
-              onClick={() => {
-                setAssistantOpen(true);
-                ask(`What could be affected if I modify ${target}?`);
-              }}
+              onClick={() => runTask({ task: "impact", target }, `What could be affected if I modify ${target}?`)}
             >
               <i className="bi bi-stars me-1" aria-hidden="true" />
               Ask AI about this change

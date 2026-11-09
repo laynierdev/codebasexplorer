@@ -20,7 +20,7 @@ const REASON_LABEL: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const { repo, ask, setAssistantOpen, openFile } = useExplorer();
+  const { repo, runTask, openFile } = useExplorer();
 
   const data = useMemo(() => {
     const index = buildGraphIndex(repo);
@@ -57,10 +57,7 @@ export default function DashboardPage() {
             <button
               type="button"
               className="btn btn-outline-primary btn-sm"
-              onClick={() => {
-                setAssistantOpen(true);
-                ask("Explain this project to me");
-              }}
+              onClick={() => runTask({ task: "overview" }, "Explain this project to me")}
             >
               <i className="bi bi-stars me-1" aria-hidden="true" />
               Explain this project

@@ -34,14 +34,29 @@ export type SearchResult = z.infer<typeof s.SearchResultSchema>;
 export type ImpactResult = z.infer<typeof s.ImpactResultSchema>;
 export type AnalysisLimits = z.infer<typeof s.AnalysisLimitsSchema>;
 
-/* ---------- Assistant (Stage 3 will add schemas for structured AI output) ---------- */
+/* ---------- Assistant (structured AI output is validated by the schemas in src/ai/schemas.ts) ---------- */
 
 export type ClaimKind = "fact" | "inference" | "recommendation" | "uncertain";
 
 export interface AnswerBlock {
   kind: ClaimKind;
   text: string;
+  /** References verified against the repository. */
   refs?: SourceRef[];
+  /** True when the model called this a fact but no reference could be verified. */
+  downgraded?: boolean;
+}
+
+export interface AssistantMeta {
+  provider: "mock" | "gemini";
+  model?: string;
+  durationMs: number;
+  /** Set when Gemini was expected but the mock answered (reason shown to the user). */
+  fallbackReason?: string;
+  /** Grounding corrections and other things the user should know about this answer. */
+  warnings: string[];
+  injectionSuspected: boolean;
+  truncated: boolean;
 }
 
 export interface AssistantMessage {
@@ -49,5 +64,8 @@ export interface AssistantMessage {
   role: "user" | "assistant";
   text?: string;
   blocks?: AnswerBlock[];
-  provider?: "mock" | "gemini";
+  meta?: AssistantMeta;
+  /** Set when the request failed; `retry` lets the user repeat it. */
+  error?: string;
+  retryLabel?: string;
 }
