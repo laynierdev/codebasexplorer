@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useExplorer } from "@/context/ExplorerContext";
+import { useProjects } from "@/context/ProjectsContext";
 import { buildGraphIndex, findCycles, findLayerViolations, LAYER_LABEL, layerOf } from "@/lib/graph/analysis";
 import { getFile } from "@/lib/repo/refs";
 import { PageHeader, SourceLink } from "@/components/ui/primitives";
@@ -21,6 +22,7 @@ const REASON_LABEL: Record<string, string> = {
 
 export default function DashboardPage() {
   const { repo, runTask, openFile } = useExplorer();
+  const { canSave, persistent, ready } = useProjects();
 
   const data = useMemo(() => {
     const index = buildGraphIndex(repo);
@@ -65,6 +67,18 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {canSave && ready && (
+        <div className="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2" role="status">
+          <span>
+            This project is only in memory and will be gone after a reload.{" "}
+            {persistent ? "Save it in this browser to reopen it later." : "Browser storage is unavailable; export it as a file to keep it."}
+          </span>
+          <Link href="/projects" className="btn btn-sm btn-primary">
+            Save or export…
+          </Link>
+        </div>
+      )}
 
       <div className="row g-3 mb-3">
         {[

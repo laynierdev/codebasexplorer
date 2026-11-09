@@ -1,16 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { ZodError } from "zod";
 import { DEFAULT_LIMITS, resolveLimits } from "@/analysis/limits";
 import { IGNORED_DIRECTORIES, IGNORED_PATTERNS } from "@/analysis/ignore";
 import { useExplorer } from "@/context/ExplorerContext";
+import { useProjects } from "@/context/ProjectsContext";
 import { PageHeader } from "@/components/ui/primitives";
 
 const MB = 1024 * 1024;
 
 export default function SettingsPage() {
-  const { limits, setLimits, aiStatus } = useExplorer();
+  const { limits, aiStatus } = useExplorer();
+  const { settings, saveSettings, persistent, projects, busy } = useProjects();
   const [maxArchiveMb, setMaxArchiveMb] = useState(limits.maxArchiveBytes / MB);
   const [maxFileKb, setMaxFileKb] = useState(limits.maxFileBytes / 1024);
   const [maxFiles, setMaxFiles] = useState(limits.maxFiles);
@@ -26,7 +29,7 @@ export default function SettingsPage() {
     setNewIgnore("");
   };
 
-  const save = (e: FormEvent) => {
+  const save = async (e: FormEvent) => {
     e.preventDefault();
     try {
       const next = resolveLimits({
@@ -36,26 +39,26 @@ export default function SettingsPage() {
         extraIgnores,
         respectGitignore,
       });
-      setLimits(next);
-      setStatus({ kind: "saved", text: "Saved for this session. They apply to the next import." });
+      const ok = await saveSettings({ limits: next });
+      setStatus(ok ? { kind: "saved", text: persistent ? "Saved in this browser. They apply to the next import." : "Applied for this session (browser storage is unavailable, so they will not persist)." } : { kind: "error", text: "The settings could not be saved." });
     } catch (err) {
       setStatus({ kind: "error", text: err instanceof ZodError ? "Every limit must be a positive number." : "Invalid settings." });
     }
   };
 
-  const reset = () => {
+  const reset = async () => {
     setMaxArchiveMb(DEFAULT_LIMITS.maxArchiveBytes / MB);
     setMaxFileKb(DEFAULT_LIMITS.maxFileBytes / 1024);
     setMaxFiles(DEFAULT_LIMITS.maxFiles);
     setExtraIgnores([]);
     setRespectGitignore(true);
-    setLimits(DEFAULT_LIMITS);
+    await saveSettings({ limits: DEFAULT_LIMITS });
     setStatus({ kind: "saved", text: "Defaults restored." });
   };
 
   return (
     <>
-      <PageHeader title="Settings" subtitle="Analysis limits and AI provider. In this prototype changes apply to this session only; persistence arrives in Stage 4." />
+      <PageHeader title="Settings" subtitle="Analysis limits, AI provider and local storage. Settings are saved in this browser." />
       <div className="row g-3">
         <div className="col-lg-6">
           <section className="cx-card h-100">
@@ -135,6 +138,37 @@ export default function SettingsPage() {
                 )}
               </div>
             </form>
+          </section>
+        </div>
+
+        <div className="col-12">
+          <section className="cx-card" aria-labelledby="h-storage-settings">
+            <h2 className="cx-card-title" id="h-storage-settings">
+              Saved projects
+            </h2>
+            <div className="cx-card-body">
+              <p className="mb-2">
+                {persistent ? `${projects.length} project(s) saved in this browser. ` : "Browser storage is not available, so nothing can be saved. "}
+                Saving stores the analysis and the full text of the source files on this device only.
+              </p>
+              <div className="form-check mb-2">
+                <input
+                  id="autosave-setting"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={settings.autoSave && settings.consentGiven}
+                  disabled={busy || !persistent || !settings.consentGiven}
+                  onChange={(e) => saveSettings({ autoSave: e.target.checked })}
+                />
+                <label htmlFor="autosave-setting" className="form-check-label">
+                  Save new imports automatically
+                </label>
+                {!settings.consentGiven && <div className="form-text">Available after you save your first project and confirm what is stored.</div>}
+              </div>
+              <Link href="/projects" className="btn btn-sm btn-outline-primary">
+                Manage projects
+              </Link>
+            </div>
           </section>
         </div>
 

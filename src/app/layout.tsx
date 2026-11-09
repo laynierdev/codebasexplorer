@@ -4,6 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "@/styles/app.css";
 import { ExplorerProvider } from "@/context/ExplorerContext";
+import { ProjectsProvider } from "@/context/ProjectsContext";
 import { AppShell } from "@/components/layout/AppShell";
 import { demoRepository } from "@/mock/buildDemoRepo";
 
@@ -20,7 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {/* The demo repository is analyzed on the server (build time), so the TypeScript parser never ships to the client's first load. */}
         <ExplorerProvider demo={demoRepository}>
-          <AppShell>{children}</AppShell>
+          <ProjectsProvider>
+            <AppShell>{children}</AppShell>
+          </ProjectsProvider>
         </ExplorerProvider>
       </body>
     </html>

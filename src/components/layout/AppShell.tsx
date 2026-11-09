@@ -4,12 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useExplorer } from "@/context/ExplorerContext";
+import { useProjects } from "@/context/ProjectsContext";
+import { SaveProjectDialog } from "@/components/projects/SaveProjectDialog";
+import type { ProjectMeta } from "@/persistence/schemas";
 import { AssistantPanel } from "@/components/assistant/AssistantPanel";
 import { ImportModal } from "@/components/layout/ImportModal";
 import { QuickSearch } from "@/components/layout/QuickSearch";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: "bi-speedometer2" },
+  { href: "/projects", label: "Projects", icon: "bi-collection" },
   { href: "/workspace", label: "Workspace", icon: "bi-folder2-open" },
   { href: "/architecture", label: "Architecture", icon: "bi-diagram-3" },
   { href: "/dependencies", label: "Dependencies", icon: "bi-link-45deg" },
@@ -22,8 +26,10 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { repo, source, assistantOpen, setAssistantOpen } = useExplorer();
+  const { repo, source, projectId, assistantOpen, setAssistantOpen } = useExplorer();
+  const { canSave, projects, open, ready } = useProjects();
   const [importOpen, setImportOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
   const flush = pathname === "/workspace" || pathname === "/architecture";
 
   return (
@@ -50,16 +56,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="app-main-col">
         <header className="app-header">
           <div className="dropdown">
-            <ProjectSwitcher name={repo.name} onImport={() => setImportOpen(true)} />
+            <ProjectSwitcher name={repo.name} projects={projects} currentId={projectId} demoActive={source === "demo"} onOpen={open} onImport={() => setImportOpen(true)} />
           </div>
           <span
             className="chip d-none d-md-inline-flex"
-            title={source === "demo" ? "Bundled sample repository" : "Analyzed in this browser session; it is not saved yet (persistence arrives in Stage 4)"}
+            title={source === "demo" ? "Bundled sample repository" : projectId ? "Saved in this browser's storage" : "Only in memory: it will be gone after a reload unless you save it"}
           >
-            <i className={`bi ${source === "demo" ? "bi-box-seam" : "bi-hdd"}`} aria-hidden="true" /> {source === "demo" ? "Demo project" : "Imported · this session"}
+            <i className={`bi ${source === "demo" ? "bi-box-seam" : projectId ? "bi-check2-circle" : "bi-hdd"}`} aria-hidden="true" />{" "}
+            {source === "demo" ? "Demo project" : projectId ? "Saved" : "Not saved"}
           </span>
           <div className="flex-grow-1 d-none d-md-block" />
           <QuickSearch />
+          {canSave && ready && (
+            <button type="button" className="btn btn-warning btn-sm" onClick={() => setSaveOpen(true)}>
+              <i className="bi bi-save" aria-hidden="true" />
+              <span className="ms-1">Save</span>
+            </button>
+          )}
           <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setImportOpen(true)} aria-label="Import ZIP">
             <i className="bi bi-file-earmark-zip" aria-hidden="true" />
             <span className="d-none d-sm-inline ms-1">Import ZIP</span>
@@ -84,12 +97,29 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} />}
+      {saveOpen && <SaveProjectDialog onClose={() => setSaveOpen(false)} />}
     </div>
   );
 }
 
-function ProjectSwitcher({ name, onImport }: { name: string; onImport: () => void }) {
+function ProjectSwitcher({
+  name,
+  projects,
+  currentId,
+  demoActive,
+  onOpen,
+  onImport,
+}: {
+  name: string;
+  projects: ProjectMeta[];
+  currentId: string | null;
+  demoActive: boolean;
+  onOpen: (id: string) => Promise<boolean>;
+  onImport: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  const { resetToDemo } = useExplorer();
+  const close = () => setOpen(false);
   return (
     <>
       <button type="button" className="btn btn-sm btn-light border" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}>
@@ -101,19 +131,48 @@ function ProjectSwitcher({ name, onImport }: { name: string; onImport: () => voi
           className="dropdown-menu show"
           role="menu"
           onKeyDown={(e) => {
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") close();
           }}
         >
           <li>
             <h6 className="dropdown-header">Projects</h6>
           </li>
           <li>
-            <button type="button" role="menuitem" className="dropdown-item active" onClick={() => setOpen(false)}>
-              {name} <span className="small opacity-75">(demo)</span>
+            <button
+              type="button"
+              role="menuitem"
+              className={`dropdown-item${demoActive ? " active" : ""}`}
+              onClick={() => {
+                close();
+                if (!demoActive) resetToDemo();
+              }}
+            >
+              acme-shop-api <span className="small opacity-75">(demo)</span>
             </button>
           </li>
+          {projects.slice(0, 8).map((m) => (
+            <li key={m.id}>
+              <button
+                type="button"
+                role="menuitem"
+                className={`dropdown-item${m.id === currentId ? " active" : ""}`}
+                onClick={() => {
+                  close();
+                  if (m.id !== currentId) void onOpen(m.id);
+                }}
+              >
+                {m.name}
+              </button>
+            </li>
+          ))}
           <li>
             <hr className="dropdown-divider" />
+          </li>
+          <li>
+            <Link href="/projects" role="menuitem" className="dropdown-item" onClick={close}>
+              <i className="bi bi-collection me-1" aria-hidden="true" />
+              All projects…
+            </Link>
           </li>
           <li>
             <button
@@ -121,12 +180,12 @@ function ProjectSwitcher({ name, onImport }: { name: string; onImport: () => voi
               role="menuitem"
               className="dropdown-item"
               onClick={() => {
-                setOpen(false);
+                close();
                 onImport();
               }}
             >
               <i className="bi bi-plus-lg me-1" aria-hidden="true" />
-              Import ZIP…
+              Analyze ZIP or folder…
             </button>
           </li>
         </ul>

@@ -3,18 +3,11 @@
 import { useMemo, useState } from "react";
 import type { AssistantMeta } from "@/domain/types";
 import { useExplorer } from "@/context/ExplorerContext";
+import { useProjects } from "@/context/ProjectsContext";
 import { generateDocs } from "@/lib/docs";
 import { DOC_SECTIONS, type DocSection } from "@/ai/schemas";
 import { formatRef, PageHeader } from "@/components/ui/primitives";
-
-function download(filename: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+import { downloadText } from "@/lib/download";
 
 interface AiDoc {
   markdown: string;
@@ -22,7 +15,8 @@ interface AiDoc {
 }
 
 export default function DocsPage() {
-  const { repo, invokeAi, openFile, aiStatus } = useExplorer();
+  const { repo, invokeAi, openFile, aiStatus, projectId } = useExplorer();
+  const { docs: savedDocs, saveDoc, deleteDoc } = useProjects();
   const sections = useMemo(() => generateDocs(repo), [repo]);
   const [id, setId] = useState(sections[0]?.id ?? "");
   const [copied, setCopied] = useState(false);
@@ -30,7 +24,15 @@ export default function DocsPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const current = sections.find((s) => s.id === id);
-  const ai = aiDocs[id];
+  /** AI-written version of a section: generated in this session, or restored from the saved project. */
+  const aiFor = (sectionId: string): AiDoc | undefined => {
+    const local = aiDocs[sectionId];
+    if (local) return local;
+    const stored = savedDocs.find((d) => d.section === sectionId);
+    if (!stored) return undefined;
+    return { markdown: stored.markdown, meta: { provider: stored.provider, model: stored.model, durationMs: 0, warnings: stored.warnings, injectionSuspected: false, truncated: false } };
+  };
+  const ai = aiFor(id);
   const shown = ai?.markdown ?? current?.markdown ?? "";
 
   const copy = async () => {
@@ -56,7 +58,10 @@ export default function DocsPage() {
           return `## ${s.heading}\n\n${s.markdown}${refs}`;
         })
         .join("\n\n");
-      setAiDocs((prev) => ({ ...prev, [id]: { markdown: `# ${outcome.doc.title}\n\n${body}`, meta: outcome.meta } }));
+      const markdown = `# ${outcome.doc.title}\n\n${body}`;
+      setAiDocs((prev) => ({ ...prev, [id]: { markdown, meta: outcome.meta } }));
+      // Keep AI-written docs with the saved project so they do not have to be regenerated.
+      if (projectId) await saveDoc({ section: id as DocSection, markdown, provider: outcome.meta.provider, model: outcome.meta.model, warnings: outcome.meta.warnings, savedAt: new Date().toISOString() });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed.");
     } finally {
@@ -65,9 +70,9 @@ export default function DocsPage() {
   };
 
   const exportAll = () =>
-    download(
+    downloadText(
       `${repo.name}-docs.md`,
-      sections.map((s) => aiDocs[s.id]?.markdown ?? s.markdown).join("\n\n---\n\n"),
+      sections.map((s) => aiFor(s.id)?.markdown ?? s.markdown).join("\n\n---\n\n"),
     );
 
   return (
@@ -91,7 +96,7 @@ export default function DocsPage() {
                 <li key={s.id}>
                   <button type="button" className={`tree-row ${id === s.id ? "selected" : ""}`} style={{ padding: "8px 12px" }} aria-current={id === s.id} onClick={() => setId(s.id)}>
                     {s.title}
-                    {aiDocs[s.id] && <i className="bi bi-stars ms-auto" title="AI-written version" aria-label="AI-written version" />}
+                    {aiFor(s.id) && <i className="bi bi-stars ms-auto" title="AI-written version" aria-label="AI-written version" />}
                   </button>
                 </li>
               ))}
@@ -107,11 +112,18 @@ export default function DocsPage() {
                   {ai ? "Regenerate with AI" : "Write with AI"}
                 </button>
                 {ai && (
-                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setAiDocs(({ [id]: _removed, ...rest }) => rest)}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => {
+                      setAiDocs(({ [id]: _removed, ...rest }) => rest);
+                      void deleteDoc(id as DocSection);
+                    }}
+                  >
                     Back to template
                   </button>
                 )}
-                <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => download(`${repo.name}-${current.id}.md`, shown)}>
+                <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => downloadText(`${repo.name}-${current.id}.md`, shown)}>
                   Export section
                 </button>
                 <button type="button" className="btn btn-sm btn-outline-secondary" onClick={copy}>
@@ -129,6 +141,11 @@ export default function DocsPage() {
               {ai?.meta.fallbackReason && (
                 <div className="alert alert-warning py-2" role="status">
                   Gemini was unavailable ({ai.meta.fallbackReason}); this draft comes from the mock provider.
+                </div>
+              )}
+              {ai && !projectId && (
+                <div className="alert alert-secondary py-2 small" role="note">
+                  This AI-written version lives only in memory. Save the project to keep it.
                 </div>
               )}
               {ai && ai.meta.warnings.length > 0 && (
