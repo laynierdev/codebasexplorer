@@ -4,6 +4,8 @@
 
 <p align="center"><strong>Understand any codebase. Navigate with confidence.</strong></p>
 
+<p align="center"><a href="https://codebasexplorer.vercel.app"><strong>Live demo</strong></a> (runs in mock AI mode; your repositories are analyzed in your own browser)</p>
+
 <p align="center">
   <a href="https://github.com/laynierdev/codebasexplorer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/laynierdev/codebasexplorer/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
