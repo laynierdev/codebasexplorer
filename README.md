@@ -5,13 +5,11 @@
 <p align="center"><strong>Understand any codebase. Navigate with confidence.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/OWNER/codebasexplorer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/OWNER/codebasexplorer/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/laynierdev/codebasexplorer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/laynierdev/codebasexplorer/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-black">
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6">
 </p>
-
-> Replace `OWNER` in the badge URLs with your GitHub user or organization after publishing the repository.
 
 CodebaseXplorer is a developer tool that shortens the time it takes to understand an unfamiliar repository. Import a ZIP or a local folder and you get a navigable, **analysis-backed** view of the project: file tree, source viewer, architecture graph, dependency and impact analysis, execution flows, search, and an AI assistant whose answers cite real files and lines.
 
@@ -141,7 +139,7 @@ flowchart TD
 **Requirements:** Node.js 20.9 or newer (22 or 24 recommended) and npm.
 
 ```bash
-git clone https://github.com/OWNER/codebasexplorer.git
+git clone https://github.com/laynierdev/codebasexplorer.git
 cd codebasexplorer
 npm install
 cp .env.example .env.local   # optional: add a Gemini API key, see below
