@@ -4,22 +4,61 @@
 
 <p align="center"><strong>Understand any codebase. Navigate with confidence.</strong></p>
 
-<p align="center"><a href="https://codebasexplorer.vercel.app"><strong>Live demo</strong></a> (runs in mock AI mode; your repositories are analyzed in your own browser)</p>
+<p align="center">
+  <a href="https://codebasexplorer.vercel.app"><strong>Try the live demo</strong></a>
+  &nbsp;·&nbsp; <a href="#getting-started">Run it locally</a>
+  &nbsp;·&nbsp; <a href="#how-it-works">How it works</a>
+</p>
 
 <p align="center">
   <a href="https://github.com/laynierdev/codebasexplorer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/laynierdev/codebasexplorer/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-black">
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61dafb">
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6">
+  <img alt="WCAG 2.2 AA audited" src="https://img.shields.io/badge/a11y-WCAG%202.2%20AA-2ea44f">
 </p>
 
-CodebaseXplorer is a developer tool that shortens the time it takes to understand an unfamiliar repository. Import a ZIP or a local folder and you get a navigable, **analysis-backed** view of the project: file tree, source viewer, architecture graph, dependency and impact analysis, execution flows, search, and an AI assistant whose answers cite real files and lines.
+<p align="center">
+  <img src="docs/screenshots/workspace-ai.jpg" alt="CodebaseXplorer workspace: file tree, highlighted source and an AI answer that cites exact lines" width="100%">
+</p>
 
-It is deliberately **not** "a chatbot with source files attached". Everything structural (symbols, imports, endpoints, layers, call chains, cycles) is extracted deterministically from the source. The AI explains and enriches those findings, and everything it claims is checked against the repository before you see it.
+<p align="center"><sub>The live demo runs in mock AI mode and analyzes your repositories entirely in your own browser.</sub></p>
+
+## The idea
+
+Opening an unfamiliar repository is slow. You skim the README, grep for names, jump between files, and slowly rebuild a mental map: where execution starts, which layer calls which, what a change would break. Pasting source files into a chatbot does not fix this: the answers are fluent, but you cannot tell which parts are read from the code and which are guessed.
+
+**CodebaseXplorer turns that exploration into a tool, not a guess.**
+
+1. **Analyze deterministically.** Import a ZIP or a folder. The code is parsed (never executed) and turned into a model of the project: files, symbols, imports, endpoints, layers, call chains and cycles.
+2. **Explore visually.** Navigate the tree, read highlighted source, follow architecture graphs, dependencies and execution flows, run impact analysis, search by name, text, symbol or meaning.
+3. **Ask with evidence.** The AI assistant gets only the few files and lines that matter for your question, plus the facts the analysis already knows. Every file, line range and symbol it cites is **checked against the real repository**, and each statement is labelled **fact**, **inference**, **recommendation** or **uncertain**.
+
+> **Principles:** facts come from code, not from a model · AI explains, it never invents structure · nothing from a repository is ever executed · your code stays in your browser unless you ask an AI question, and then only short excerpts leave it · nothing is dropped silently.
+
+### Who it is for
+
+- Developers joining a project or reviewing an unfamiliar open-source repository.
+- Maintainers who want an onboarding guide and architecture overview grounded in the actual code.
+- Anyone about to change something and asking *"what could break?"*
+
+## At a glance
+
+| | |
+|---|---|
+| 🧭 **Understand fast** | Dashboard with stack, entry points, API endpoints, layers, structural concerns and an honest list of what was skipped |
+| 🕸️ **See the structure** | Architecture graph (modules and files), dependency explorer, circular-dependency detection |
+| 🔎 **Trace behaviour** | Execution flows traced across files from each endpoint, every step linked to source |
+| 🎯 **Change safely** | Impact analysis separating *confirmed* dependents, tests and endpoints from *inferred* risks |
+| 🤖 **Ask with citations** | Gemini (or a credential-free mock) with facts/inferences labelled and every citation verified |
+| 💾 **Keep your work** | Multiple saved projects in your browser, JSON export/import with conflict resolution |
+| 🔒 **Safe by design** | Archives validated before extraction, repositories never executed, API key server-side only |
 
 ## Contents
 
-- [Screenshots](#screenshots)
+- [The idea](#the-idea)
+- [Tour](#tour)
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Technology stack](#technology-stack)
@@ -37,13 +76,32 @@ It is deliberately **not** "a chatbot with source files attached". Everything st
 - [Deployment](#deployment)
 - [License](#license)
 
-## Screenshots
+## Tour
 
-| | |
-|---|---|
-| **Dashboard**: stack, entry points, endpoints, layers, concerns and an analysis summary that lists everything skipped.<br>![Dashboard](docs/screenshots/dashboard.jpg) | **Workspace**: file tree, highlighted source, and an AI answer whose citation opens the exact lines.<br>![Workspace with AI answer](docs/screenshots/workspace-ai.jpg) |
-| **Architecture**: module-level graph derived from imports, with an inspector and drill-down to files.<br>![Architecture graph](docs/screenshots/architecture.jpg) | **Execution flows**: call chains traced across files, each step linked to source.<br>![Execution flow](docs/screenshots/flows.jpg) |
-| **Impact analysis**: confirmed dependents, tests and endpoints, clearly separated from inferred risks.<br>![Impact analysis](docs/screenshots/impact.jpg) | **Projects**: saved analyses live in your browser; export and import as JSON.<br>![Projects](docs/screenshots/projects.jpg) |
+### Start from the big picture
+The **dashboard** summarizes the repository: languages, technologies, entry points, detected API endpoints, layers, the most depended-on files and structural concerns such as circular dependencies. The analysis summary lists every skipped file or folder with its reason.
+
+![Dashboard](docs/screenshots/dashboard.jpg)
+
+### See how it is built
+The **architecture graph** is derived from imports, not drawn by an AI. Switch between a module (directory) view and a file view, filter by layer, select a node to see what it depends on and what uses it, and drill into its files. A keyboard-friendly list offers the same navigation without the graph.
+
+![Architecture graph](docs/screenshots/architecture.jpg)
+
+### Follow a request end to end
+**Execution flows** follow the call chain from an endpoint's handler through the project's functions, resolved through imports. Each step links to the exact lines and is labelled *verified* (static evidence) or *inference*.
+
+![Execution flow](docs/screenshots/flows.jpg)
+
+### Know what a change could break
+**Impact analysis** lists direct and transitive dependents, tests and endpoints reached, all confirmed through imports, and keeps potential impacts clearly separate. It never claims to find everything.
+
+![Impact analysis](docs/screenshots/impact.jpg)
+
+### Keep your projects
+Saved projects live in your browser's IndexedDB. Open, rename, delete, export to a versioned JSON file and import elsewhere, resolving conflicts per project.
+
+![Projects](docs/screenshots/projects.jpg)
 
 ## Features
 
