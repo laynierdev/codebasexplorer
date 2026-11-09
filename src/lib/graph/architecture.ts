@@ -15,10 +15,10 @@ export interface PositionedNode extends ArchNode {
 
 export function layoutGraph(graph: Pick<ArchitectureGraph, "nodes" | "edges">, direction: "LR" | "TB" = "LR"): PositionedNode[] {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: direction, nodesep: 28, ranksep: 90, marginx: 20, marginy: 20 });
+  g.setGraph({ rankdir: direction, nodesep: 22, ranksep: direction === "LR" ? 56 : 48, marginx: 12, marginy: 12 });
   g.setDefaultEdgeLabel(() => ({}));
-  const width = 190;
-  const height = 52;
+  const width = 168;
+  const height = 44;
   for (const n of graph.nodes) g.setNode(n.id, { width, height });
   for (const e of graph.edges) if (e.source !== e.target) g.setEdge(e.source, e.target);
   dagre.layout(g);

@@ -13,7 +13,7 @@ let highlighterPromise: Promise<HighlighterCore> | null = null;
 function getHighlighter(): Promise<HighlighterCore> {
   highlighterPromise ??= (async () => {
     const [{ createHighlighterCore }, { createJavaScriptRegexEngine }] = await Promise.all([import("shiki/core"), import("shiki/engine/javascript")]);
-    return createHighlighterCore({ themes: [import("@shikijs/themes/github-light")], langs: [], engine: createJavaScriptRegexEngine() });
+    return createHighlighterCore({ themes: [import("@shikijs/themes/github-light-high-contrast")], langs: [], engine: createJavaScriptRegexEngine() });
   })();
   return highlighterPromise;
 }
@@ -58,7 +58,7 @@ export async function highlightLines(code: string, language: Language, ext = "")
   try {
     const highlighter = await getHighlighter();
     if (!highlighter.getLoadedLanguages().includes(lang)) await highlighter.loadLanguage(load() as never);
-    return highlighter.codeToTokensBase(code, { lang, theme: "github-light" }) as HighlightToken[][];
+    return highlighter.codeToTokensBase(code, { lang, theme: "github-light-high-contrast" }) as HighlightToken[][];
   } catch {
     return plain();
   }

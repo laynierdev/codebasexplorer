@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useExplorer } from "@/context/ExplorerContext";
 import { useProjects } from "@/context/ProjectsContext";
 import { SaveProjectDialog } from "@/components/projects/SaveProjectDialog";
+import { LogoMark } from "@/components/ui/LogoMark";
 import type { ProjectMeta } from "@/persistence/schemas";
 import { AssistantPanel } from "@/components/assistant/AssistantPanel";
 import { ImportModal } from "@/components/layout/ImportModal";
@@ -31,6 +32,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [importOpen, setImportOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const flush = pathname === "/workspace" || pathname === "/architecture";
+  const mainRef = useRef<HTMLElement>(null);
+  const firstRender = useRef(true);
+
+  // Page titles come from each route's metadata. After a navigation, keyboard and screen-reader users land on the content.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    mainRef.current?.focus({ preventScroll: true });
+  }, [pathname]);
 
   return (
     <div className="app-shell">
@@ -39,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <nav className="app-nav" aria-label="Main navigation">
         <Link href="/" className="app-brand" aria-label="CodebaseXplorer home">
-          <i className="bi bi-compass" aria-hidden="true" />
+          <LogoMark size={30} />
           <span>CodebaseXplorer</span>
         </Link>
         {NAV.map((item) => {
@@ -89,7 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <div className="app-body">
-          <main id="main" tabIndex={-1} className={`app-main${flush ? " flush" : ""}`}>
+          <main id="main" ref={mainRef} tabIndex={-1} className={`app-main${flush ? " flush" : ""}`}>
             {children}
           </main>
           {assistantOpen && <AssistantPanel />}

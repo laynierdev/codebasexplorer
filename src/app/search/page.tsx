@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { SearchMode, SearchResult } from "@/domain/types";
 import { useExplorer } from "@/context/ExplorerContext";
@@ -29,9 +29,14 @@ function SearchView() {
   const urlQuery = params.get("q") ?? "";
   const urlMode = (params.get("mode") as SearchMode | null) ?? "text";
   const [input, setInput] = useState(urlQuery);
+  const [syncedQuery, setSyncedQuery] = useState(urlQuery);
   const mode = MODES.some((m) => m.id === urlMode) ? urlMode : "text";
 
-  useEffect(() => setInput(urlQuery), [urlQuery]);
+  // Keep the box in sync when the URL query changes (e.g. from the header search), without an effect.
+  if (syncedQuery !== urlQuery) {
+    setSyncedQuery(urlQuery);
+    setInput(urlQuery);
+  }
 
   const results = useMemo(() => searchRepository(repo, urlQuery, mode), [repo, urlQuery, mode]);
   const [ai, setAi] = useState<{ query: string; results: SearchResult[]; note?: string; provider: "gemini" | "mock"; fallback?: string } | null>(null);
@@ -69,7 +74,7 @@ function SearchView() {
   return (
     <>
       <PageHeader title="Search" subtitle="Find files, text and symbols. Selecting a result opens the source at that line." />
-      <form onSubmit={submit} className="d-flex gap-2 mb-2" role="search">
+      <form onSubmit={submit} className="d-flex gap-2 mb-2" role="search" aria-label="Search this repository">
         <label htmlFor="search-input" className="visually-hidden">
           Search query
         </label>

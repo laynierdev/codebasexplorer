@@ -14,7 +14,7 @@ export function QuickSearch() {
   };
 
   return (
-    <form onSubmit={submit} role="search" className="d-flex quick-search">
+    <form onSubmit={submit} role="search" aria-label="Quick code search" className="d-flex quick-search">
       <label htmlFor="quick-search" className="visually-hidden">
         Search the repository
       </label>

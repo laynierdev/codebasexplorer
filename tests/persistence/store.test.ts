@@ -189,6 +189,26 @@ describe("IndexedDbProjectStore specifics", () => {
     store.close();
   });
 
+  it("reopens the database when the connection was closed underneath it (site data cleared, other tab)", async () => {
+    const factory = new IDBFactory();
+    const store = await IndexedDbProjectStore.open("reopen", factory);
+    await store.save({ meta: meta("a"), repository: repo });
+    // Simulate the browser/another tab closing the connection...
+    (store as unknown as { db: IDBDatabase }).db.close();
+    // ...the next operation transparently reopens it and still sees the data.
+    expect((await store.list()).projects.map((p) => p.id)).toEqual(["a"]);
+    // Deleting the whole database while the app is open (Clear site data) must not wedge the store either.
+    await new Promise<void>((resolve) => {
+      (store as unknown as { db: IDBDatabase }).db.close();
+      const r = factory.deleteDatabase("reopen");
+      r.onsuccess = () => resolve();
+    });
+    expect((await store.list()).projects).toEqual([]);
+    await store.save({ meta: meta("b"), repository: repo });
+    expect(await store.has("b")).toBe(true);
+    store.close();
+  });
+
   it("reports unavailable storage clearly", async () => {
     await expect(IndexedDbProjectStore.open("x", null)).rejects.toMatchObject({ code: "unavailable" });
   });

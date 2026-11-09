@@ -164,6 +164,19 @@ export default function ArchitecturePage() {
               <p className="mb-0">The graph is derived from imports in the source. The AI explains it but never adds relationships.</p>
             </div>
           )}
+          <details className="mt-3">
+            <summary className="small fw-semibold">Browse {graph.nodes.length} nodes as a list</summary>
+            <p className="small text-muted mt-1 mb-1">A keyboard- and screen-reader-friendly alternative to clicking nodes in the graph.</p>
+            <ul className="list-unstyled mb-0">
+              {graph.nodes.map((n) => (
+                <li key={n.id}>
+                  <button type="button" className="link-btn" aria-pressed={selected === n.id} onClick={() => setSelected(n.id)}>
+                    {n.label} <span className="text-muted">({LAYER_LABEL[n.layer]})</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
         </aside>
       </div>
     </div>

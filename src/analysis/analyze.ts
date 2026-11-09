@@ -48,7 +48,7 @@ export function analyzeZip(bytes: Uint8Array, options: AnalyzeOptions = {}): Rep
 /** Analyzes already-extracted files (ZIP entries or a selected folder). */
 export function analyzeEntries(entries: RawEntry[], options: AnalyzeOptions = {}): Repository {
   const started = Date.now();
-  const limits = resolveLimits(options.limits);
+  resolveLimits(options.limits); // validates user-provided limits early (throws on invalid values)
   const progress = options.onProgress ?? (() => undefined);
   const skipped: SkippedItem[] = [...(options.skipped ?? [])];
   const warnings: string[] = [];

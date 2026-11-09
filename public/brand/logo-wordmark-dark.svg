@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 72" role="img" aria-label="CodebaseXplorer">
+  <title>CodebaseXplorer</title>
+  <g transform="translate(4 4)">
+    <rect width="64" height="64" rx="14" fill="#1f5fd6"/>
+    <g stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"><path d="M18 18 L46 46 M46 18 L18 46"/></g>
+    <g fill="#ffffff"><circle cx="18" cy="18" r="5.5"/><circle cx="46" cy="18" r="5.5"/><circle cx="18" cy="46" r="5.5"/><circle cx="46" cy="46" r="5.5"/></g>
+    <circle cx="32" cy="32" r="7" fill="#ffc83d"/>
+  </g>
+  <text x="84" y="47" font-family="Lexend, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="600" fill="#ffffff">Codebase<tspan fill="#ffc83d">X</tspan>plorer</text>
+</svg>

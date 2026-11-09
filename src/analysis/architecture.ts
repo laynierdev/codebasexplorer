@@ -1,4 +1,4 @@
-import type { ArchEdge, ArchNode, Layer, Repository } from "@/domain/types";
+import type { ArchEdge, ArchNode, Repository } from "@/domain/types";
 import { EXTERNAL_SYSTEMS } from "./technologies";
 
 export interface ArchitectureGraph {

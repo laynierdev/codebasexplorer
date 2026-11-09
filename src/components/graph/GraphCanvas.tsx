@@ -1,8 +1,8 @@
 "use client";
 
 import "@xyflow/react/dist/style.css";
-import { useMemo } from "react";
-import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import { useEffect, useMemo, useRef } from "react";
+import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge, type Node, type ReactFlowInstance } from "@xyflow/react";
 import type { ArchEdge } from "@/domain/types";
 import type { PositionedNode } from "@/lib/graph/architecture";
 
@@ -17,6 +17,18 @@ interface Props {
 
 /** Thin presentational wrapper around React Flow. Receives already-computed positions. */
 export function GraphCanvas({ nodes, edges, selectedId, onSelect, ariaLabel, showMiniMap = false }: Props) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const flowRef = useRef<ReactFlowInstance | null>(null);
+
+  // Fit the graph to the container once it has its real size, and again whenever the container is resized.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => flowRef.current?.fitView({ padding: 0.08, maxZoom: 1.1, duration: 0 }));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const neighbors = useMemo(() => {
     if (!selectedId) return null;
     const set = new Set<string>([selectedId]);
@@ -53,12 +65,16 @@ export function GraphCanvas({ nodes, edges, selectedId, onSelect, ariaLabel, sho
   });
 
   return (
-    <div className="graph-wrap" role="group" aria-label={ariaLabel}>
+    <div className="graph-wrap" role="group" aria-label={ariaLabel} ref={wrapRef}>
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: 0.08, maxZoom: 1.1 }}
+        onInit={(instance) => {
+          flowRef.current = instance;
+          requestAnimationFrame(() => instance.fitView({ padding: 0.08, maxZoom: 1.1, duration: 0 }));
+        }}
         minZoom={0.2}
         maxZoom={2}
         nodesConnectable={false}

@@ -32,6 +32,7 @@
   --bs-link-color: var(--cx-primary);
   --bs-link-color-rgb: 31, 95, 214;
   --bs-border-color: var(--cx-border);
+  --bs-secondary-color: #59636e;
 }
 
 html,
@@ -54,6 +55,15 @@ body {
   --bs-btn-active-border-color: #17449c;
   --bs-btn-disabled-bg: var(--cx-primary);
   --bs-btn-disabled-border-color: var(--cx-primary);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: #4f5962;
+  --bs-btn-border-color: #6c757d;
+  --bs-btn-hover-bg: #59636e;
+  --bs-btn-hover-border-color: #59636e;
+  --bs-btn-active-bg: #4f5962;
+  --bs-btn-active-border-color: #4f5962;
 }
 
 .btn-outline-primary {
@@ -137,6 +147,9 @@ body {
   letter-spacing: 0.01em;
   text-align: center;
   line-height: 1.1;
+}
+.app-brand svg {
+  flex: 0 0 auto;
 }
 .app-brand i {
   font-size: 1.5rem;
@@ -417,7 +430,7 @@ button.chip:hover {
   flex: 0 0 52px;
   text-align: right;
   padding-right: 14px;
-  color: #8c959f;
+  color: #6a737d;
   user-select: none;
 }
 .code-line .src {
@@ -732,3 +745,20 @@ pre.doc-preview {
 .cx-node.layer-component { border-color: var(--layer-component); }
 .cx-node.layer-page { border-color: var(--layer-page); }
 .cx-node.layer-util { border-color: var(--layer-util); }
+
+/* The main region is focused programmatically after navigation; it is a container, not a control. */
+.app-main:focus {
+  outline: none;
+}
+
+.modal-dialog-scrollable .modal-body {
+  overscroll-behavior: contain;
+}
+
+/* Inline link-style buttons: keep a minimum 24px target (WCAG 2.2 target size). */
+.link-btn {
+  display: inline-block;
+  min-height: 24px;
+  padding: 2px 0;
+  line-height: 20px;
+}

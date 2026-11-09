@@ -48,7 +48,6 @@ export function detectInjection(pack: ContextPack): boolean {
 export function sanitizeUntrusted(text: string): string {
   return (
     text
-      // eslint-disable-next-line no-control-regex
       .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
       .replace(/<(\/?)(repository_data|task)/gi, "<​$1$2")
   );
