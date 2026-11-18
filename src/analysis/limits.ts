@@ -1,20 +1,9 @@
 import { AnalysisLimitsSchema } from "@/domain/schemas";
 import type { AnalysisLimits } from "@/domain/types";
 
-const MB = 1024 * 1024;
+import { DEFAULT_LIMITS } from "./defaults";
 
-export const DEFAULT_LIMITS: AnalysisLimits = {
-  maxArchiveBytes: 50 * MB,
-  maxTotalBytes: 250 * MB,
-  maxFileBytes: 1 * MB,
-  maxEntries: 50_000,
-  maxFiles: 10_000,
-  maxCompressionRatio: 100,
-  maxPathLength: 512,
-  maxPathDepth: 40,
-  extraIgnores: [],
-  respectGitignore: true,
-};
+export { DEFAULT_LIMITS };
 
 /** Validates user-provided limits and fills in defaults. Throws a ZodError on invalid input. */
 export function resolveLimits(input?: Partial<AnalysisLimits>): AnalysisLimits {

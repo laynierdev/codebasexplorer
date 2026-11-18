@@ -5,7 +5,8 @@ import type { AssistantMeta } from "@/domain/types";
 import { useExplorer } from "@/context/ExplorerContext";
 import { useProjects } from "@/context/ProjectsContext";
 import { generateDocs } from "@/lib/docs";
-import { DOC_SECTIONS, type DocSection } from "@/ai/schemas";
+import { DOC_SECTIONS } from "@/ai/sections";
+import type { DocSection } from "@/ai/schemas";
 import { formatRef, PageHeader } from "@/components/ui/primitives";
 import { downloadText } from "@/lib/download";
 

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-export const metadata: Metadata = { title: "Projects" };
+export const metadata: Metadata = {
+  title: "Projects",
+  description: "Your saved repository analyses, stored in this browser.", robots: { index: false, follow: false },
+};
 
 export default function Layout({ children }: { children: ReactNode }) {
   return children;

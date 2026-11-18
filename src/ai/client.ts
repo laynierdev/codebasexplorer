@@ -1,7 +1,7 @@
 import type { AnswerBlock, AssistantMeta, Repository } from "@/domain/types";
 import { buildContextPack } from "./context/pack";
 import { describeReport, groundAnswer, groundDocs, groundSearch, type GroundedDoc, type GroundedSearchResult, type GroundingReport } from "./grounding";
-import { AiResponseSchema, AiStatusSchema, type AiResponse, type AiStatus, type AiTask } from "./schemas";
+import { AiResponseSchema, type AiResponse, type AiTask } from "./schemas";
 
 /**
  * Browser side of the AI feature: selects context from the analyzed repository, calls the server route
@@ -105,14 +105,4 @@ function friendlyFallback(code: string, reason: string): string {
   return FRIENDLY[code] ?? reason;
 }
 
-/** Secret-free status of the AI backend (provider, model, whether a key exists). */
-export async function fetchAiStatus(fetchImpl: typeof fetch = fetch): Promise<AiStatus | null> {
-  try {
-    const res = await fetchImpl("/api/ai/status", { cache: "no-store" });
-    if (!res.ok) return null;
-    const parsed = AiStatusSchema.safeParse(await res.json());
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
+export { fetchAiStatus } from "./status";

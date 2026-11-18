@@ -35,7 +35,13 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    // Brand images and icons rarely change: let browsers and the CDN reuse them for a day (and serve stale for a week while revalidating).
+    const staticAssetCache = [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/brand/:path*", headers: staticAssetCache },
+      { source: "/icons/:path*", headers: staticAssetCache },
+    ];
   },
 };
 

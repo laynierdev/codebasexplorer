@@ -68,7 +68,8 @@ export const ContextPackSchema = z.object({
   truncated: z.boolean(),
 });
 
-export const DOC_SECTIONS = ["overview", "architecture", "modules", "api", "flows", "dependencies", "onboarding"] as const;
+import { DOC_SECTIONS } from "./sections";
+export { DOC_SECTIONS };
 export const DocSectionSchema = z.enum(DOC_SECTIONS);
 
 const question = z.string().trim().min(1).max(AI_LIMITS.maxQuestionChars);

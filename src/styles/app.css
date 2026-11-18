@@ -762,3 +762,10 @@ pre.doc-preview {
   padding: 2px 0;
   line-height: 20px;
 }
+
+/* Show the page immediately and swap the icon font in when it arrives (the library's default hides icons while it loads). */
+@font-face {
+  font-family: "bootstrap-icons";
+  font-display: swap;
+  src: url("../../node_modules/bootstrap-icons/font/fonts/bootstrap-icons.woff2") format("woff2");
+}

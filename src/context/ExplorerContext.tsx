@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { AnalysisLimits, AssistantMessage, Repository } from "@/domain/types";
 import type { AiOutcome } from "@/ai/client";
 import type { AiStatus, AiTask } from "@/ai/schemas";
-import { DEFAULT_LIMITS } from "@/analysis/limits";
+import { DEFAULT_LIMITS } from "@/analysis/defaults";
 
 
 export interface LineRange {
@@ -89,7 +89,7 @@ export function ExplorerProvider({ children, demo }: { children: ReactNode; demo
 
   useEffect(() => {
     let cancelled = false;
-    import("@/ai/client").then(({ fetchAiStatus }) => fetchAiStatus().then((status) => !cancelled && setAiStatus(status)));
+    import("@/ai/status").then(({ fetchAiStatus }) => fetchAiStatus().then((status) => !cancelled && setAiStatus(status)));
     return () => {
       cancelled = true;
     };

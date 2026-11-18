@@ -57,7 +57,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {NAV.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
-            <Link key={item.href} href={item.href} className={`nav-link-cx${active ? " active" : ""}`} aria-current={active ? "page" : undefined}>
+            <Link key={item.href} href={item.href} prefetch={false} className={`nav-link-cx${active ? " active" : ""}`} aria-current={active ? "page" : undefined}>
               <i className={`bi ${item.icon}`} aria-hidden="true" />
               <span>{item.label}</span>
             </Link>

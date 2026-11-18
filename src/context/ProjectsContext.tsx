@@ -1,16 +1,22 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { DEFAULT_LIMITS } from "@/analysis/limits";
+import { DEFAULT_LIMITS } from "@/analysis/defaults";
 import type { DocSection } from "@/ai/schemas";
 import { useExplorer } from "@/context/ExplorerContext";
 import { downloadText } from "@/lib/download";
 import { StorageError } from "@/persistence/errors";
-import { applyImport as runApplyImport, buildExport, exportFileName, parseImport, serializeExport, type ImportReport, type ParsedImport, type Resolution } from "@/persistence/exportImport";
-import { openStore } from "@/persistence";
+import type { ImportReport, ParsedImport, Resolution } from "@/persistence/exportImport";
 import { metaFromRepository } from "@/persistence/projects";
 import type { AppSettings, ProjectMeta, StoredDoc } from "@/persistence/schemas";
 import type { ProjectStore, StorageUsage } from "@/persistence/store";
+
+// Persistence pulls in the validation library and opens IndexedDB, so it is only started when it is needed:
+// on pages that show saved data, once there is something to save, or at the first user interaction.
+// Import/export code is loaded on demand.
+const loadPersistence = () => import("@/persistence");
+const loadTransfer = () => import("@/persistence/exportImport");
 
 const DEFAULT_SETTINGS: AppSettings = { limits: DEFAULT_LIMITS, autoSave: false, consentGiven: false };
 
@@ -79,12 +85,42 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setUsage(await store.usage());
   }, []);
 
+  const pathname = usePathname();
+  const [interacted, setInteracted] = useState(false);
+  const started = useRef(false);
+  const unmounted = useRef(false);
+  const wanted = interacted || source === "imported" || pathname === "/projects" || pathname === "/settings" || pathname === "/docs";
+
+  // Start opening the store when the user first interacts (or after a long idle period).
+  useEffect(() => {
+    const start = () => setInteracted(true);
+    window.addEventListener("pointerdown", start, { once: true, passive: true });
+    window.addEventListener("keydown", start, { once: true, passive: true });
+    const timer = window.setTimeout(start, 20_000);
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    unmounted.current = false;
+    return () => {
+      unmounted.current = true;
+      storeRef.current?.close();
+    };
+  }, []);
+
   // Open the store once and load projects and settings.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    if (!wanted || started.current) return;
+    started.current = true;
+    void init();
+    async function init() {
+      const { openStore } = await loadPersistence();
       const opened = await openStore();
-      if (cancelled) {
+      if (unmounted.current) {
         opened.store.close();
         return;
       }
@@ -102,13 +138,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         setError(messageOf(err));
       }
       setReady(true);
-    })();
-    return () => {
-      cancelled = true;
-      storeRef.current?.close();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
-  }, []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- start once, the first time the store is wanted
+  }, [wanted]);
 
   // Documentation saved for the project being viewed.
   useEffect(() => {
@@ -234,6 +266,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
           if (stored) entries.push({ meta: stored.meta, repository: stored.repository, docs: await store.listDocs(id) });
         }
         if (entries.length === 0) throw new StorageError("not-found", "There is nothing to export.");
+        const { buildExport, exportFileName, serializeExport } = await loadTransfer();
         downloadText(exportFileName(entries.map((e) => e.meta)), serializeExport(buildExport(entries)), "application/json");
         return true;
       }, false),
@@ -244,6 +277,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     () =>
       run(async () => {
         const store = storeRef.current;
+        const { buildExport, exportFileName, serializeExport } = await loadTransfer();
         if (projectId && store) {
           const stored = await store.get(projectId);
           if (stored) {
@@ -261,7 +295,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
   const previewImport = useCallback(async (file: File): Promise<ParsedImport> => {
     const store = storeRef.current;
-    const text = await file.text();
+    const [text, { parseImport }] = await Promise.all([file.text(), loadTransfer()]);
     return parseImport(text, store ? (await store.list()).projects : []);
   }, []);
 
@@ -269,6 +303,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     async (parsed: ParsedImport, resolutions: Record<string, Resolution>): Promise<ImportReport> => {
       const store = storeRef.current;
       if (!store) throw new StorageError("unavailable", "Browser storage is not available.");
+      const { applyImport: runApplyImport } = await loadTransfer();
       const report = await runApplyImport(store, parsed, resolutions);
       await refresh();
       return report;
